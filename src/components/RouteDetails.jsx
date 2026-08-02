@@ -33,8 +33,6 @@ function RouteDetails({
         <button
           className={metricsOpen ? 'active' : ''}
           onClick={onToggleMetrics}
-          disabled={!route.metricsFile}
-          title={route.metricsFile ? undefined : '请重新导入健康数据以生成指标'}
         >
           <Activity size={17} />{metricsOpen ? '收起指标' : '心率与海拔'}
         </button>

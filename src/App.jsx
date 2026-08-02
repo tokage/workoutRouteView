@@ -3,7 +3,7 @@ import MapCanvas from './components/MapCanvas'
 import MetricPanel from './components/MetricPanel'
 import RouteDetails from './components/RouteDetails'
 import Sidebar from './components/Sidebar'
-import { localRouteRepository } from './routeRepository'
+import { apiRouteRepository } from './routeRepository'
 
 export default function App() {
   const [data, setData] = useState(null)
@@ -20,7 +20,7 @@ export default function App() {
   const metricsCache = useRef(new Map())
 
   useEffect(() => {
-    localRouteRepository.listRoutes()
+    apiRouteRepository.listRoutes()
       .then((payload) => {
         setData(payload)
         setSelectedId(payload.routes[0]?.id || null)
@@ -72,7 +72,7 @@ export default function App() {
     }
     let active = true
     setMetricState({ routeId: selected.id, status: 'loading', data: null })
-    localRouteRepository.getRouteMetrics(selected)
+    apiRouteRepository.getRouteMetrics(selected)
       .then((metrics) => {
         if (!active) return
         metricsCache.current.set(selected.id, metrics)
@@ -90,7 +90,7 @@ export default function App() {
     return (
       <main className="state-screen">
         <h1>路线数据还没准备好</h1>
-        <p>{error}。请先使用独立数据处理工具生成 <code>public/data/routes.json</code>。</p>
+        <p>{error}。请确认 iPhone 上的 RouteLens 服务已启动。</p>
       </main>
     )
   }

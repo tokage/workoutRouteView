@@ -6,7 +6,7 @@ const activityTypeToCategory = {
 }
 
 function toCategory(type) {
-  return activityTypeToCategory[type] || 'other'
+  return activityTypeToCategory[type?.toLowerCase()] || 'other'
 }
 
 function dateParts(iso) {

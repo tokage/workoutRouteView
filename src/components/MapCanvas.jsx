@@ -90,6 +90,9 @@ export default function MapCanvas({
       const last = selected.points[selected.points.length - 1]
       L.marker([first[0], first[1]], { icon: marker(color, '起') }).addTo(layer)
       L.marker([last[0], last[1]], { icon: marker(color, '终') }).addTo(layer)
+    }
+
+    if (selected && !showAll) {
       map.fitBounds(selected.bounds, { padding: [90, 90], maxZoom: 15 })
     } else if (bounds.length) {
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 11 })

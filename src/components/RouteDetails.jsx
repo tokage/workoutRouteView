@@ -26,7 +26,7 @@ function RouteDetails({
       <dl>
         <div><dt>距离</dt><dd>{route.distanceKm?.toFixed(2) || '—'} <small>km</small></dd></div>
         <div><dt>时长</dt><dd>{formatDuration(route.durationMin)}</dd></div>
-        <div><dt>爬升</dt><dd>{route.ascentM ?? '—'} <small>m</small></dd></div>
+        <div><dt>爬升</dt><dd>{route.ascentM != null ? route.ascentM.toFixed(2) : '—'} <small>m</small></dd></div>
         <div><dt>配速</dt><dd>{formatPace(route)} <small>/km</small></dd></div>
       </dl>
       <div className="detail-actions">

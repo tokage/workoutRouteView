@@ -106,7 +106,7 @@ function Sidebar({
                 <small>
                   <span>{route.distanceKm ? `${route.distanceKm.toFixed(2)} km` : '距离未知'}</span>
                   <span>{formatDuration(route.durationMin)}</span>
-                  <span>{route.ascentM} m</span>
+                  <span>{route.ascentM.toFixed(2)} m</span>
                 </small>
               </span>
               <ChevronRight size={17} aria-hidden="true" />

@@ -26,8 +26,6 @@ export default function MapCanvas({
   const mapRef = useRef(null)
   const routeLayerRef = useRef(null)
   const focusLayerRef = useRef(null)
-  const prevShowAll = useRef(showAll)
-
   useEffect(() => {
     if (!mapNode.current || mapRef.current) return
     const map = L.map(mapNode.current, { zoomControl: false })
@@ -93,21 +91,28 @@ export default function MapCanvas({
       L.marker([last[0], last[1]], { icon: marker(color, '终') }).addTo(layer)
     }
 
-    const showAllToggled = prevShowAll.current !== showAll
-    prevShowAll.current = showAll
-
-    if (showAllToggled) {
-      if (showAll && bounds.length) {
-        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 11 })
-      } else if (selected) {
-        map.fitBounds(selected.bounds, { padding: [90, 90], maxZoom: 15 })
-      }
-    } else if (selected) {
+    if (selected) {
       map.fitBounds(selected.bounds, { padding: [90, 90], maxZoom: 15 })
     } else if (bounds.length) {
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 11 })
     }
   }, [routes, selected, showAll, onFocusElapsedSec])
+
+  // 点击 "显示全部" 按钮时缩放到全部路线；首次渲染不触发
+  const skipInitialZoom = useRef(true)
+  useEffect(() => {
+    if (skipInitialZoom.current) {
+      skipInitialZoom.current = false
+      return
+    }
+    const map = mapRef.current
+    if (!map || !routes.length) return
+    if (showAll) {
+      const allBounds = []
+      routes.forEach((r) => allBounds.push(...r.points.map((p) => [p[0], p[1]])))
+      if (allBounds.length) map.fitBounds(allBounds, { padding: [60, 60], maxZoom: 11 })
+    }
+  }, [showAll])
 
   useEffect(() => {
     const layer = focusLayerRef.current

@@ -79,8 +79,8 @@ function Sidebar({
           </select>
         </label>
         <button data-testid="visibility-mode" className="visibility-button" onClick={() => onShowAll(!showAll)}>
-          {showAll ? <Eye size={16} /> : <EyeOff size={16} />}
-          {showAll ? '显示全部' : '仅看选中'}
+          {showAll ? <EyeOff size={16} /> : <Eye size={16} />}
+          {showAll ? '仅看选中' : '显示全部'}
         </button>
       </div>
 

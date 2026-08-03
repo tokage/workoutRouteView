@@ -63,10 +63,10 @@ function CombinedMetricChart({
       ? `${displayValue(elevation.minimumM)}–${displayValue(elevation.maximumM)} m`
       : null,
     Number.isFinite(elevation?.ascentM)
-      ? `↑ ${displayValue(elevation.ascentM)}`
+      ? `↑ ${displayValue(elevation.ascentM, 2)} m`
       : null,
     Number.isFinite(elevation?.descentM)
-      ? `↓ ${displayValue(elevation.descentM)}`
+      ? `↓ ${displayValue(elevation.descentM, 2)} m`
       : null,
   ].filter(Boolean).join(' · ')
   const updateFromPointer = (event) => {

@@ -26,6 +26,7 @@ export default function MapCanvas({
   const mapRef = useRef(null)
   const routeLayerRef = useRef(null)
   const focusLayerRef = useRef(null)
+  const prevShowAll = useRef(showAll)
 
   useEffect(() => {
     if (!mapNode.current || mapRef.current) return
@@ -92,7 +93,16 @@ export default function MapCanvas({
       L.marker([last[0], last[1]], { icon: marker(color, '终') }).addTo(layer)
     }
 
-    if (selected && !showAll) {
+    const showAllToggled = prevShowAll.current !== showAll
+    prevShowAll.current = showAll
+
+    if (showAllToggled) {
+      if (showAll && bounds.length) {
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 11 })
+      } else if (selected) {
+        map.fitBounds(selected.bounds, { padding: [90, 90], maxZoom: 15 })
+      }
+    } else if (selected) {
       map.fitBounds(selected.bounds, { padding: [90, 90], maxZoom: 15 })
     } else if (bounds.length) {
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 11 })

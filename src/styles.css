@@ -248,6 +248,81 @@ button { color: inherit; }
   .metric-chart-interaction { height: 78px; }
 }
 
+/* ── 配速曲线读数（F06 Web，T2.6）────────────── */
+.pace-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 18px;
+  margin-top: 6px;
+  color: #849296;
+  font-size: 11px;
+}
+.pace-readout strong {
+  color: #f5c26b;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.pace-readout small { color: #7c898d; font-size: 10px; }
+
+/* ── 每公里分段表（F07 Web，T2.6）────────────── */
+.splits-panel {
+  margin-top: 10px;
+  padding: 10px 11px 8px;
+  border: 1px solid #2d3b3f;
+  border-radius: 9px;
+  background: #10191c;
+}
+.splits-empty {
+  margin: 0;
+  padding: 20px 0;
+  color: #829095;
+  font-size: 12px;
+  text-align: center;
+}
+.splits-table { display: grid; }
+.splits-row {
+  display: grid;
+  grid-template-columns: 76px minmax(64px, 1fr) minmax(64px, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  border-top: 1px solid #223033;
+}
+.splits-row:first-child { border-top: 0; }
+.splits-km {
+  color: #e8eef0;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.splits-km small { display: block; color: #7c898d; font-size: 10px; font-weight: 400; }
+.splits-pace {
+  color: #e8eef0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.splits-pace small { color: #7c898d; font-size: 10px; }
+.splits-hr {
+  color: #ff8f8f;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.splits-mark {
+  justify-self: end;
+  min-width: 32px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+.splits-mark.fast { color: #7ee2a8; background: #1e3a2c; }
+.splits-mark.slow { color: #ffb27a; background: #3a2a1c; }
+.splits-mark.even, .splits-mark.none { color: #6f7d81; background: transparent; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }

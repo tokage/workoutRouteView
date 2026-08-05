@@ -1,7 +1,8 @@
 import { memo } from 'react'
 import { Activity, LocateFixed } from 'lucide-react'
 import { ACTIVITY } from '../constants'
-import { formatDate, formatDuration, formatPaceSeconds } from '../format'
+import { formatDate, formatDuration } from '../format'
+import { formatSplitPace } from '../splits'
 import ActivityIcon from './ActivityIcon'
 
 function RouteDetails({
@@ -13,6 +14,7 @@ function RouteDetails({
 }) {
   if (!route) return null
   const meta = ACTIVITY[route.category] || ACTIVITY.other
+  const isCycling = route.category === 'ride'
   return (
     <section className="route-details" style={{ '--activity-color': meta.color }}>
       <div className="route-detail-title">
@@ -28,7 +30,7 @@ function RouteDetails({
         <div><dt>时长</dt><dd>{formatDuration(route.durationMin)}</dd></div>
         <div><dt>爬升</dt><dd>{route.ascentM != null ? route.ascentM.toFixed(2) : '—'} <small>m</small></dd></div>
         <div><dt>下降</dt><dd>{route.descentM != null ? route.descentM.toFixed(2) : '—'} <small>m</small></dd></div>
-        <div><dt>配速</dt><dd>{formatPaceSeconds(route.avgPace)} <small>/km</small></dd></div>
+        <div><dt>配速</dt><dd>{formatSplitPace(route.avgPace, isCycling)} <small>{isCycling ? 'km/h' : '/km'}</small></dd></div>
         <div><dt>均心率</dt><dd>{route.avgHeartRate != null ? `${Math.round(route.avgHeartRate)}` : '—'} <small>bpm</small></dd></div>
       </dl>
       <div className="detail-actions">

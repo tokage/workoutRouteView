@@ -1,16 +1,19 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import {
   buildLineGeometry,
   formatElapsedSeconds,
   nearestSampleByElapsed,
 } from '../metrics'
+import { formatSplitPace } from '../splits'
+import SplitsTable from './SplitsTable'
 
 const CHART_WIDTH = 1000
 const CHART_HEIGHT = 128
 const EMPTY_SAMPLES = []
 const HEART_RATE_COLOR = '#ff6b6b'
 const ELEVATION_COLOR = '#d2f05a'
+const PACE_COLOR = '#ffb020'
 
 function displayValue(value, digits = 0) {
   return Number.isFinite(value) ? Number(value).toFixed(digits) : '—'
@@ -163,6 +166,108 @@ function CombinedMetricChart({
   )
 }
 
+/**
+ * 配速曲线（F06 Web）：X 轴统一为里程 distance（与 iOS SeriesChartView 同口径）。
+ * - pace 样本来自 transformMetrics 透出的 [timeOffset, distance, value]，value 恒为 秒/km
+ * - 骑行显示 km/h（formatSplitPace 转换），其余显示 秒/km
+ * - 复用 buildLineGeometry（elapsedIndex=1 即 distance，域=总里程），虚线为本次均配速参考
+ * - 游标按里程 hover，仅本地读数，不联动地图（Web 四维联动已由时间轴曲线承担）
+ */
+function PaceChart({ paceSamples, avgPace, isCycling, totalDistanceM }) {
+  const [hoverDistance, setHoverDistance] = useState(null)
+  const geometry = useMemo(
+    () => buildLineGeometry(paceSamples, 1, 2, totalDistanceM, CHART_WIDTH, CHART_HEIGHT),
+    [paceSamples, totalDistanceM],
+  )
+  const current = hoverDistance != null && geometry
+    ? nearestSampleByElapsed(paceSamples, 1, hoverDistance)
+    : null
+  const hasReference = Number.isFinite(avgPace) && avgPace > 0
+  const updateFromPointer = (event) => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width))
+    setHoverDistance(ratio * totalDistanceM)
+  }
+
+  return (
+    <section className="metric-chart">
+      <div className="metric-chart-heading">
+        <strong>配速</strong>
+        <span>
+          {isCycling ? '公里/小时' : '秒/公里'}
+          {hasReference ? ` · 平均 ${formatSplitPace(avgPace, isCycling)}` : ''}
+        </span>
+      </div>
+      {geometry ? (
+        <div
+          className="metric-chart-interaction"
+          role="slider"
+          tabIndex="0"
+          aria-label="配速里程位置"
+          aria-valuemin="0"
+          aria-valuemax={Math.round(totalDistanceM)}
+          aria-valuenow={hoverDistance != null ? Math.round(hoverDistance) : 0}
+          aria-valuetext={current ? formatElapsedSeconds(current[0]) : ''}
+          onPointerDown={updateFromPointer}
+          onPointerMove={updateFromPointer}
+        >
+          <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} preserveAspectRatio="none" aria-hidden="true">
+            <line className="metric-gridline" x1="8" y1="64" x2="992" y2="64" />
+            {hasReference && (
+              <line
+                className="metric-gridline"
+                x1="8"
+                x2="992"
+                y1={geometry.y(avgPace)}
+                y2={geometry.y(avgPace)}
+              />
+            )}
+            <path
+              className="metric-line"
+              d={geometry.path}
+              style={{ '--metric-color': PACE_COLOR }}
+            />
+            {current && (
+              <>
+                <line
+                  className="metric-cursor"
+                  x1={geometry.x(current[1])}
+                  x2={geometry.x(current[1])}
+                  y1="4"
+                  y2="124"
+                />
+                <circle
+                  className="metric-focus-dot"
+                  cx={geometry.x(current[1])}
+                  cy={geometry.y(current[2])}
+                  r="7"
+                  style={{ '--metric-color': PACE_COLOR }}
+                />
+              </>
+            )}
+          </svg>
+        </div>
+      ) : (
+        <div className="metric-empty">这次运动没有可用的配速数据。</div>
+      )}
+      <div className="pace-readout" aria-live="polite">
+        {current ? (
+          <>
+            <span>{formatElapsedSeconds(current[0])}</span>
+            <span>{displayValue(current[1] / 1000, 2)} km</span>
+            <strong>
+              {formatSplitPace(current[2], isCycling)}
+              <small>{isCycling ? ' km/h' : ' /km'}</small>
+            </strong>
+          </>
+        ) : (
+          <span>拖动查看任意里程的配速</span>
+        )}
+      </div>
+    </section>
+  )
+}
+
 export default function MetricPanel({
   route,
   metrics,
@@ -173,20 +278,28 @@ export default function MetricPanel({
 }) {
   const heartRateSamples = metrics?.heartRate?.samples || EMPTY_SAMPLES
   const elevationSamples = metrics?.elevation?.samples || EMPTY_SAMPLES
+  const paceSamples = metrics?.pace || EMPTY_SAMPLES
+  const isCycling = route?.category === 'ride'
   const durationSec = Math.max(
     1,
     Math.round((route?.durationMin || 0) * 60),
     heartRateSamples[heartRateSamples.length - 1]?.[0] || 0,
     elevationSamples[elevationSamples.length - 1]?.[1] || 0,
   )
+  // 配速曲线 X 域：总里程（米），取 route.distanceKm 与 pace 序列末点较大者，兜底 ≥1
+  const totalDistanceM = Math.max(
+    1,
+    (route?.distanceKm || 0) * 1000,
+    paceSamples[paceSamples.length - 1]?.[1] || 0,
+  )
   const heartRateSample = nearestSampleByElapsed(metrics?.heartRate?.samples, 0, elapsedSec)
   const elevationSample = nearestSampleByElapsed(metrics?.elevation?.samples, 1, elapsedSec)
 
   return (
-    <section className="metric-panel" aria-label="心率与海拔面板">
+    <section className="metric-panel" aria-label="心率、海拔、配速与分段面板">
       <header className="metric-panel-header">
         <div>
-          <strong>查看心率、海拔</strong>
+          <strong>查看心率、海拔、配速与分段</strong>
         </div>
         <button onClick={onClose} aria-label="关闭指标面板"><X size={18} /></button>
       </header>
@@ -211,6 +324,17 @@ export default function MetricPanel({
             durationSec={durationSec}
             elapsedSec={elapsedSec}
             onElapsedSec={onElapsedSec}
+          />
+          <PaceChart
+            paceSamples={paceSamples}
+            avgPace={route?.avgPace}
+            isCycling={isCycling}
+            totalDistanceM={totalDistanceM}
+          />
+          <SplitsTable
+            splits={metrics.splits}
+            avgPace={route?.avgPace}
+            isCycling={isCycling}
           />
         </>
       )}

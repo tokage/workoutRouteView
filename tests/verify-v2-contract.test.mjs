@@ -101,6 +101,8 @@ test('② transformMetrics：海拔取自独立 elevation 序列，而非 RDP co
   assert.deepEqual(metrics.pace[0], [30, 92, 326.1])
   assert.equal(metrics.splits.length, 1)
   assert.equal(metrics.splits[0].isPartial, false)
+  assert.equal(metrics.splits[0].pace, 340, '分段配速字段透出（供 SplitsTable 消费）')
+  assert.equal(metrics.splits[0].avgHeartRate, 148, '分段心率字段透出（供 SplitsTable 消费）')
 })
 
 test('③ getRouteTrack：按需拉轨迹供地图渲染，空 id 不崩', async () => {

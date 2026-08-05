@@ -26,3 +26,12 @@ export function formatPaceSeconds(secPerKm) {
   const seconds = totalSeconds % 60
   return `${mins}:${String(seconds).padStart(2, '0')}`
 }
+
+/**
+ * 骑行：秒/km → km/h（与 iOS RouteRowView.formatSpeed 口径一致：3600 / 秒每公里）。
+ * 仅返回数值（如 "25.0"），单位由调用方以 <small>km/h</small> 展示。
+ */
+export function formatSpeedKmh(secPerKm) {
+  if (!Number.isFinite(secPerKm) || secPerKm <= 0) return '—'
+  return (3600 / secPerKm).toFixed(1)
+}

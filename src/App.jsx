@@ -18,7 +18,9 @@ export default function App() {
   const [metricsOpen, setMetricsOpen] = useState(false)
   const [metricElapsedSec, setMetricElapsedSec] = useState(0)
   const [metricState, setMetricState] = useState({ routeId: null, status: 'idle', data: null })
+  const [tracksVersion, setTracksVersion] = useState(0)
   const metricsCache = useRef(new Map())
+  const tracksCache = useRef(new Map())   // id -> [[lat, lon, elevation, timeOffset]] | null(占位)
 
   useEffect(() => {
     apiRouteRepository.listRoutes()
@@ -48,7 +50,43 @@ export default function App() {
     }
   }, [routes, selectedId])
 
-  const selected = routes.find((route) => route.id === selectedId) || routes[0] || null
+  // ── 轨迹按需拉取（v2 摘要不内嵌 coordinates）────────────────
+
+  const ensureTrack = useCallback(async (id) => {
+    if (!id || tracksCache.current.has(id)) return
+    tracksCache.current.set(id, null)   // 占位防重入
+    try {
+      const points = await apiRouteRepository.getRouteTrack(id)
+      tracksCache.current.set(id, points)
+    } catch {
+      tracksCache.current.set(id, [])   // 拉取失败按空轨迹处理，不阻塞 UI
+    }
+    setTracksVersion((version) => version + 1)
+  }, [])
+
+  // 选中路线始终按需拉轨迹
+  useEffect(() => {
+    if (selectedId) ensureTrack(selectedId)
+  }, [selectedId, ensureTrack])
+
+  // 多选叠图：对可见路线按需拉取；超过 20 条跳过（T3.4 /api/tracks 批量后放开）
+  useEffect(() => {
+    if (!visibleIds) return
+    const extraIds = [...visibleIds].filter((id) => id !== selectedId)
+    if (extraIds.length > 20) return
+    extraIds.forEach((id) => ensureTrack(id))
+  }, [visibleIds, selectedId, ensureTrack])
+
+  // 给地图用的 routes：注入已拉取的 points（未命中为空数组，MapCanvas 有保护）
+  const displayRoutes = useMemo(() => {
+    return routes.map((route) => ({
+      ...route,
+      points: tracksCache.current.get(route.id) || [],
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routes, tracksVersion])
+
+  const selected = displayRoutes.find((route) => route.id === selectedId) || displayRoutes[0] || null
 
   // ── selection / visibility ──────────────────────────────
 
@@ -176,7 +214,7 @@ export default function App() {
       <section className="map-panel">
         <MapCanvas
           key={fitKey}
-          routes={routes}
+          routes={displayRoutes}
           selected={selected}
           visibleIds={visibleIds}
           focusElapsedSec={metricsOpen ? metricElapsedSec : null}

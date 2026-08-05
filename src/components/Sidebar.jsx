@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { CheckSquare, ChevronRight, Search, Shuffle, X } from 'lucide-react'
 import { ACTIVITY, ACTIVITY_ORDER } from '../constants'
-import { formatDate, formatDuration } from '../format'
+import { formatDate, formatDuration, formatPaceSeconds } from '../format'
 import ActivityIcon from './ActivityIcon'
 
 function Sidebar({
@@ -139,7 +139,9 @@ function Sidebar({
                 <small>
                   <span>{route.distanceKm ? `${route.distanceKm.toFixed(2)} km` : '距离未知'}</span>
                   <span>{formatDuration(route.durationMin)}</span>
-                  <span>{route.ascentM.toFixed(2)} m</span>
+                  <span>{route.ascentM != null ? `${route.ascentM.toFixed(2)} m` : '—'}</span>
+                  <span>{formatPaceSeconds(route.avgPace)} /km</span>
+                  {route.avgHeartRate != null && <span>♥ {Math.round(route.avgHeartRate)}</span>}
                 </small>
               </span>
               <ChevronRight size={17} aria-hidden="true" />

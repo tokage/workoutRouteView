@@ -62,7 +62,9 @@ export default function MapCanvas({
     visibleRoutes.forEach((route) => {
       const isSelected = selected?.id === route.id
       const color = (ACTIVITY[route.category] || ACTIVITY.other).color
-      const latLngs = route.points.map((p) => [p[0], p[1]])
+      // v2 摘要不内嵌轨迹：points 为空（未拉取 / hasRoute=false）时跳过绘制，不崩溃
+      const latLngs = (route.points || []).map((p) => [p[0], p[1]])
+      if (!latLngs.length) return
       const polyline = L.polyline(latLngs, {
         className: isSelected ? 'route-line selected-route-line' : 'route-line',
         color,
@@ -73,7 +75,7 @@ export default function MapCanvas({
       }).addTo(layer)
       if (isSelected && onFocusElapsedSec) {
         polyline.on('click', (event) => {
-          const timedPoints = route.points.filter((p) => Number.isFinite(p[3]))
+          const timedPoints = (route.points || []).filter((p) => Number.isFinite(p[3]))
           if (!timedPoints.length) return
           const nearest = timedPoints.reduce((best, p) => {
             const d = event.latlng.distanceTo(L.latLng(p[0], p[1]))
@@ -85,13 +87,15 @@ export default function MapCanvas({
       bounds.push(...latLngs)
     })
 
-    // start / end markers (only when selected route is visible)
+    // start / end markers (only when selected route is visible and has a track)
     if (selected && visibleIds.has(selected.id)) {
       const color = (ACTIVITY[selected.category] || ACTIVITY.other).color
-      const first = selected.points[0]
-      const last = selected.points[selected.points.length - 1]
-      L.marker([first[0], first[1]], { icon: marker(color, '起') }).addTo(layer)
-      L.marker([last[0], last[1]], { icon: marker(color, '终') }).addTo(layer)
+      const first = selected.points?.[0]
+      const last = selected.points?.[selected.points.length - 1]
+      if (first && last) {
+        L.marker([first[0], first[1]], { icon: marker(color, '起') }).addTo(layer)
+        L.marker([last[0], last[1]], { icon: marker(color, '终') }).addTo(layer)
+      }
     }
 
     if (bounds.length) {

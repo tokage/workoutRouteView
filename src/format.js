@@ -18,9 +18,10 @@ export function formatDuration(minutes) {
     : `${mins}:${String(seconds).padStart(2, '0')}`
 }
 
-export function formatPace(route) {
-  if (!route?.distanceKm || !route?.durationMin) return '—'
-  const totalSeconds = Math.round((route.durationMin / route.distanceKm) * 60)
+/** 秒/km → "5:27"（后端 avgPace 为整体口径，前端不再用时长÷距离现算） */
+export function formatPaceSeconds(secPerKm) {
+  if (!Number.isFinite(secPerKm) || secPerKm <= 0) return '—'
+  const totalSeconds = Math.round(secPerKm)
   const mins = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
   return `${mins}:${String(seconds).padStart(2, '0')}`

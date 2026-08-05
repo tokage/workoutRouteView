@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Activity, LocateFixed } from 'lucide-react'
 import { ACTIVITY } from '../constants'
-import { formatDate, formatDuration, formatPace } from '../format'
+import { formatDate, formatDuration, formatPaceSeconds } from '../format'
 import ActivityIcon from './ActivityIcon'
 
 function RouteDetails({
@@ -27,7 +27,9 @@ function RouteDetails({
         <div><dt>距离</dt><dd>{route.distanceKm?.toFixed(2) || '—'} <small>km</small></dd></div>
         <div><dt>时长</dt><dd>{formatDuration(route.durationMin)}</dd></div>
         <div><dt>爬升</dt><dd>{route.ascentM != null ? route.ascentM.toFixed(2) : '—'} <small>m</small></dd></div>
-        <div><dt>配速</dt><dd>{formatPace(route)} <small>/km</small></dd></div>
+        <div><dt>下降</dt><dd>{route.descentM != null ? route.descentM.toFixed(2) : '—'} <small>m</small></dd></div>
+        <div><dt>配速</dt><dd>{formatPaceSeconds(route.avgPace)} <small>/km</small></dd></div>
+        <div><dt>均心率</dt><dd>{route.avgHeartRate != null ? `${Math.round(route.avgHeartRate)}` : '—'} <small>bpm</small></dd></div>
       </dl>
       <div className="detail-actions">
         <button

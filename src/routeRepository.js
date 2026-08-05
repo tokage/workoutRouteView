@@ -62,8 +62,9 @@ function transformMetrics(raw) {
   const hrStats = computeStats(hrValues)
   const hrAvg = hrValues.length ? hrValues.reduce((a, b) => a + b, 0) / hrValues.length : null
 
-  const elevSamples = coords.map((c) => [c.distance, c.timeOffset, c.elevation])
-  const elevValues = coords.map((c) => c.elevation)
+  // ★海拔来自独立 elevation 序列（iOS 基于原始 CLLocation 重建；RDP 简化点只喂地图——架构 §2.4）
+  const elevSamples = (raw.elevation || []).map((p) => [p.distance, p.timeOffset, p.value])
+  const elevValues = (raw.elevation || []).map((p) => p.value)
   const elevStats = computeStats(elevValues)
 
   return {

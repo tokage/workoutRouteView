@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { ChevronRight, Eye, EyeOff, Search } from 'lucide-react'
+import { CheckSquare, ChevronRight, Search, Shuffle, X } from 'lucide-react'
 import { ACTIVITY, ACTIVITY_ORDER } from '../constants'
 import { formatDate, formatDuration } from '../format'
 import ActivityIcon from './ActivityIcon'
@@ -15,10 +15,23 @@ function Sidebar({
   onYear,
   search,
   onSearch,
-  showAll,
-  onShowAll,
+  multiSelect,
+  onToggleMulti,
+  visibleIds,
+  onToggleVisible,
+  onSelectAll,
+  onDeselectAll,
+  onInvert,
 }) {
   const years = [...new Set(data.routes.map((route) => route.year))].sort((a, b) => b - a)
+
+  const handleRowClick = (id) => {
+    if (multiSelect) {
+      onToggleVisible(id)
+    } else {
+      onSelect(id)
+    }
+  }
 
   return (
     <aside className="sidebar">
@@ -78,11 +91,23 @@ function Sidebar({
             ))}
           </select>
         </label>
-        <button data-testid="visibility-mode" className="visibility-button" onClick={() => onShowAll(!showAll)}>
-          {showAll ? <EyeOff size={16} /> : <Eye size={16} />}
-          {showAll ? '仅看选中' : '显示全部'}
+        <button
+          className={`visibility-button ${multiSelect ? 'active' : ''}`}
+          onClick={onToggleMulti}
+          aria-pressed={multiSelect}
+        >
+          <CheckSquare size={16} />
+          {multiSelect ? '退出' : '多选'}
         </button>
       </div>
+
+      {multiSelect && (
+        <div className="batch-actions">
+          <button onClick={onSelectAll}>全选</button>
+          <button onClick={onInvert}><Shuffle size={13} />反选</button>
+          <button onClick={onDeselectAll}><X size={13} />不选</button>
+        </div>
+      )}
 
       <div className="list-heading">
         <span>共 {routes.length} 条</span>
@@ -92,14 +117,22 @@ function Sidebar({
       <div className="route-list">
         {routes.map((route) => {
           const meta = ACTIVITY[route.category] || ACTIVITY.other
+          const isVisible = visibleIds.has(route.id)
+          const isSelected = selectedId === route.id
           return (
             <button
-              className={`route-row ${selectedId === route.id ? 'selected' : ''}`}
+              className={`route-row ${isSelected ? 'selected' : ''}`}
               key={route.id}
-              onClick={() => onSelect(route.id)}
+              onClick={() => handleRowClick(route.id)}
               style={{ '--activity-color': meta.color }}
             >
-              <span className="route-icon"><ActivityIcon category={route.category} /></span>
+              {multiSelect ? (
+                isVisible
+                  ? <span className="route-check checked" style={{ '--activity-color': meta.color }} />
+                  : <span className="route-check" />
+              ) : (
+                <span className="route-icon"><ActivityIcon category={route.category} /></span>
+              )}
               <span className="route-copy">
                 <time>{formatDate(route.date)}</time>
                 <strong>{meta.label}</strong>

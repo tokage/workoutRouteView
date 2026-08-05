@@ -18,7 +18,7 @@ function marker(color, label) {
 export default function MapCanvas({
   routes,
   selected,
-  showAll,
+  visibleIds,
   focusElapsedSec,
   onFocusElapsedSec,
 }) {
@@ -26,6 +26,7 @@ export default function MapCanvas({
   const mapRef = useRef(null)
   const routeLayerRef = useRef(null)
   const focusLayerRef = useRef(null)
+
   useEffect(() => {
     if (!mapNode.current || mapRef.current) return
     const map = L.map(mapNode.current, { zoomControl: false })
@@ -47,20 +48,21 @@ export default function MapCanvas({
     }
   }, [])
 
+  // ── route layer ──────────────────────────────────────────
+
   useEffect(() => {
     const map = mapRef.current
     const layer = routeLayerRef.current
     if (!map || !layer) return
     layer.clearLayers()
 
-    const visibleRoutes = showAll
-      ? [...routes.filter((route) => route.id !== selected?.id), ...(selected ? [selected] : [])]
-      : selected ? [selected] : []
+    const visibleRoutes = routes.filter((r) => visibleIds.has(r.id))
     const bounds = []
+
     visibleRoutes.forEach((route) => {
       const isSelected = selected?.id === route.id
       const color = (ACTIVITY[route.category] || ACTIVITY.other).color
-      const latLngs = route.points.map((point) => [point[0], point[1]])
+      const latLngs = route.points.map((p) => [p[0], p[1]])
       const polyline = L.polyline(latLngs, {
         className: isSelected ? 'route-line selected-route-line' : 'route-line',
         color,
@@ -71,11 +73,11 @@ export default function MapCanvas({
       }).addTo(layer)
       if (isSelected && onFocusElapsedSec) {
         polyline.on('click', (event) => {
-          const timedPoints = route.points.filter((point) => Number.isFinite(point[3]))
+          const timedPoints = route.points.filter((p) => Number.isFinite(p[3]))
           if (!timedPoints.length) return
-          const nearest = timedPoints.reduce((best, point) => {
-            const distance = event.latlng.distanceTo(L.latLng(point[0], point[1]))
-            return distance < best.distance ? { point, distance } : best
+          const nearest = timedPoints.reduce((best, p) => {
+            const d = event.latlng.distanceTo(L.latLng(p[0], p[1]))
+            return d < best.distance ? { point: p, distance: d } : best
           }, { point: timedPoints[0], distance: Number.POSITIVE_INFINITY })
           onFocusElapsedSec(nearest.point[3])
         })
@@ -83,7 +85,8 @@ export default function MapCanvas({
       bounds.push(...latLngs)
     })
 
-    if (selected) {
+    // start / end markers (only when selected route is visible)
+    if (selected && visibleIds.has(selected.id)) {
       const color = (ACTIVITY[selected.category] || ACTIVITY.other).color
       const first = selected.points[0]
       const last = selected.points[selected.points.length - 1]
@@ -91,28 +94,15 @@ export default function MapCanvas({
       L.marker([last[0], last[1]], { icon: marker(color, '终') }).addTo(layer)
     }
 
-    if (selected) {
-      map.fitBounds(selected.bounds, { padding: [90, 90], maxZoom: 15 })
-    } else if (bounds.length) {
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 11 })
+    if (bounds.length) {
+      const single = visibleRoutes.length === 1
+      map.fitBounds(bounds, {
+        padding: single ? [90, 90] : [60, 60],
+      })
     }
-  }, [routes, selected, showAll, onFocusElapsedSec])
+  }, [routes, selected, visibleIds, onFocusElapsedSec])
 
-  // 点击 "显示全部" 按钮时缩放到全部路线；首次渲染不触发
-  const skipInitialZoom = useRef(true)
-  useEffect(() => {
-    if (skipInitialZoom.current) {
-      skipInitialZoom.current = false
-      return
-    }
-    const map = mapRef.current
-    if (!map || !routes.length) return
-    if (showAll) {
-      const allBounds = []
-      routes.forEach((r) => allBounds.push(...r.points.map((p) => [p[0], p[1]])))
-      if (allBounds.length) map.fitBounds(allBounds, { padding: [60, 60], maxZoom: 11 })
-    }
-  }, [showAll])
+  // ── focus layer (metric playback) ────────────────────────
 
   useEffect(() => {
     const layer = focusLayerRef.current

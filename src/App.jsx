@@ -12,7 +12,8 @@ export default function App() {
   const [year, setYear] = useState('all')
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState(null)
-  const [showAll, setShowAll] = useState(true)
+  const [multiSelect, setMultiSelect] = useState(false)
+  const [visibleIds, setVisibleIds] = useState(null)
   const [fitKey, setFitKey] = useState(0)
   const [metricsOpen, setMetricsOpen] = useState(false)
   const [metricElapsedSec, setMetricElapsedSec] = useState(0)
@@ -23,7 +24,9 @@ export default function App() {
     apiRouteRepository.listRoutes()
       .then((payload) => {
         setData(payload)
-        setSelectedId(payload.routes[0]?.id || null)
+        const firstId = payload.routes[0]?.id
+        setVisibleIds(firstId ? new Set([firstId]) : new Set())
+        setSelectedId(firstId || null)
       })
       .catch((reason) => setError(reason.message))
   }, [])
@@ -46,12 +49,63 @@ export default function App() {
   }, [routes, selectedId])
 
   const selected = routes.find((route) => route.id === selectedId) || routes[0] || null
+
+  // ── selection / visibility ──────────────────────────────
+
+  const handleSelect = useCallback((id) => {
+    setSelectedId(id)
+    setVisibleIds(new Set([id]))
+  }, [])
+
+  const handleToggleVisible = useCallback((id) => {
+    setVisibleIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+    setSelectedId(id)
+  }, [])
+
+  const handleToggleMulti = useCallback(() => {
+    setMultiSelect((prev) => !prev)
+  }, [])
+
+  // exiting multi → single: reduce to selectedId only
+  useEffect(() => {
+    if (!multiSelect && visibleIds && visibleIds.size > 1 && selectedId) {
+      setVisibleIds(new Set([selectedId]))
+    }
+  }, [multiSelect]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSelectAll = useCallback(() => {
+    setVisibleIds(new Set(routes.map((r) => r.id)))
+  }, [routes])
+
+  const handleDeselectAll = useCallback(() => {
+    setVisibleIds(new Set())
+  }, [])
+
+  const handleInvert = useCallback(() => {
+    setVisibleIds((prev) => {
+      const routeIds = new Set(routes.map((r) => r.id))
+      const next = new Set()
+      routeIds.forEach((id) => {
+        if (!prev.has(id)) next.add(id)
+      })
+      return next
+    })
+  }, [routes])
+
   const handleShowAll = useCallback(() => {
     setCategory('all')
     setYear('all')
     setSearch('')
-    setShowAll(true)
-  }, [])
+    setVisibleIds(data ? new Set(data.routes.map((r) => r.id)) : null)
+  }, [data])
+
+  // ── metrics / fit ───────────────────────────────────────
+
   const handleToggleMetrics = useCallback(() => {
     setMetricsOpen((open) => !open)
   }, [])
@@ -86,6 +140,8 @@ export default function App() {
     }
   }, [metricsOpen, selected?.id])
 
+  // ── render ──────────────────────────────────────────────
+
   if (error) {
     return (
       <main className="state-screen">
@@ -94,7 +150,7 @@ export default function App() {
       </main>
     )
   }
-  if (!data) return <main className="state-screen"><p>正在载入运动路线…</p></main>
+  if (!data || !visibleIds) return <main className="state-screen"><p>正在载入运动路线…</p></main>
 
   return (
     <main className="app-shell">
@@ -102,22 +158,27 @@ export default function App() {
         data={data}
         routes={routes}
         selectedId={selected?.id}
-        onSelect={setSelectedId}
+        onSelect={handleSelect}
         category={category}
         onCategory={setCategory}
         year={year}
         onYear={setYear}
         search={search}
         onSearch={setSearch}
-        showAll={showAll}
-        onShowAll={setShowAll}
+        multiSelect={multiSelect}
+        onToggleMulti={handleToggleMulti}
+        visibleIds={visibleIds}
+        onToggleVisible={handleToggleVisible}
+        onSelectAll={handleSelectAll}
+        onDeselectAll={handleDeselectAll}
+        onInvert={handleInvert}
       />
       <section className="map-panel">
         <MapCanvas
           key={fitKey}
           routes={routes}
           selected={selected}
-          showAll={showAll}
+          visibleIds={visibleIds}
           focusElapsedSec={metricsOpen ? metricElapsedSec : null}
           onFocusElapsedSec={setMetricElapsedSec}
         />

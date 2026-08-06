@@ -3,6 +3,7 @@ import MapCanvas from './components/MapCanvas'
 import MetricPanel from './components/MetricPanel'
 import RouteDetails from './components/RouteDetails'
 import Sidebar from './components/Sidebar'
+import ComparisonPanel from './components/ComparisonPanel'
 import { apiRouteRepository } from './routeRepository'
 
 export default function App() {
@@ -19,6 +20,9 @@ export default function App() {
   const [metricElapsedSec, setMetricElapsedSec] = useState(0)
   const [metricState, setMetricState] = useState({ routeId: null, status: 'idle', data: null })
   const [tracksVersion, setTracksVersion] = useState(0)
+  // 对比面板（T3.4）：选中的 ≤3 条路线 + 是否打开
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [compareRoutes, setCompareRoutes] = useState([])
   const metricsCache = useRef(new Map())
   const tracksCache = useRef(new Map())   // id -> [[lat, lon, elevation, timeOffset]] | null(占位)
 
@@ -142,6 +146,17 @@ export default function App() {
     setVisibleIds(data ? new Set(data.routes.map((r) => r.id)) : null)
   }, [data])
 
+  // 打开对比面板：取当前可见路线（multiSelect 态），按开始时间降序截断 ≤3 条
+  const handleCompare = useCallback(() => {
+    if (!visibleIds || visibleIds.size < 2) return
+    const selected = data.routes
+      .filter((route) => visibleIds.has(route.id))
+      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+      .slice(0, 3)
+    setCompareRoutes(selected)
+    setCompareOpen(true)
+  }, [data, visibleIds])
+
   // ── metrics / fit ───────────────────────────────────────
 
   const handleToggleMetrics = useCallback(() => {
@@ -210,6 +225,8 @@ export default function App() {
         onSelectAll={handleSelectAll}
         onDeselectAll={handleDeselectAll}
         onInvert={handleInvert}
+        canCompare={visibleIds ? visibleIds.size >= 2 : false}
+        onCompare={handleCompare}
       />
       <section className="map-panel">
         <MapCanvas
@@ -237,6 +254,9 @@ export default function App() {
           onFit={handleFit}
           onShowAll={handleShowAll}
         />
+        {compareOpen && compareRoutes.length >= 2 && (
+          <ComparisonPanel routes={compareRoutes} onClose={() => setCompareOpen(false)} />
+        )}
       </section>
     </main>
   )

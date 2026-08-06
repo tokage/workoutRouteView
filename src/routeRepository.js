@@ -29,8 +29,10 @@ function transformRoute(raw) {
   return {
     id: raw.id,
     category: toCategory(raw.activityType),
+    activityType: raw.activityType, // 透出原始类型（对比逻辑用 usesPace 口径判断，不依赖 category）
     year,
     date,
+    startDate: raw.startDate, // 透出 ISO，供对比列头「M月d日」与排序
     distanceKm: raw.distance / 1000,
     durationMin: raw.duration / 60,
     ascentM: raw.totalAscent,
@@ -111,5 +113,16 @@ export const apiRouteRepository = {
     if (!resp.ok) throw new Error('未找到轨迹数据')
     const raw = await resp.json()
     return (raw.coordinates || []).map((c) => [c.lat, c.lon, c.elevation, c.timeOffset])
+  },
+
+  /** 批量拉取天气（T3.5 / T3.4 对比面板）：只读 iOS 本地缓存，不触发 WeatherKit。
+   *  返回 workoutId → WorkoutWeather 的 map；未命中的 id 直接不出现（不报错）。 */
+  async getWeather(ids) {
+    if (!ids || !ids.length) return {}
+    const unique = [...new Set(ids)].slice(0, 200)
+    const resp = await fetch(`/api/weather?ids=${encodeURIComponent(unique.join(','))}`)
+    if (!resp.ok) return {}
+    const raw = await resp.json()
+    return (raw && raw.weather) || {}
   },
 }

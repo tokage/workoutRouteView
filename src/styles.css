@@ -326,3 +326,62 @@ button { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+/* ── 指标对比面板（T3.4，视觉对齐 iOS ComparisonView）──────── */
+.comparison-panel {
+  position: absolute;
+  inset: 20px;
+  z-index: 850;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  overflow: auto;
+  border: 1px solid #46565b;
+  border-radius: 12px;
+  background: #0e1719f5;
+  box-shadow: 0 12px 34px #0008;
+  backdrop-filter: blur(12px);
+}
+.comparison-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.comparison-header strong { font-size: 16px; }
+.comparison-header button {
+  display: grid; place-items: center; width: 34px; height: 34px;
+  border: 1px solid #3e4d51; border-radius: 8px; background: transparent; cursor: pointer;
+}
+.comparison-header button:hover { border-color: #718388; background: #182326; }
+.comparison-loading, .comparison-empty {
+  display: grid; min-height: 92px; place-items: center; margin: 0;
+  color: #829095; font-size: 12px; text-align: center;
+}
+.comparison-card { padding: 12px 13px; border: 1px solid #2d3b3f; border-radius: 10px; background: #10191c; }
+.comparison-card-title { margin: 0 0 10px; font-size: 13px; color: #cfd8da; font-weight: 600; }
+.comparison-card-sub { margin: -4px 0 8px; color: #849296; font-size: 11px; }
+.comparison-row {
+  display: grid;
+  grid-template-columns: 64px repeat(var(--cols, 3), minmax(0, 1fr));
+  align-items: center; gap: 8px;
+  padding: 7px 2px;
+  border-top: 1px solid #1f2c2f;
+}
+.comparison-row:first-child { border-top: 0; }
+.comparison-label { color: #9aa6aa; font-size: 12px; text-align: left; }
+.comparison-col-head { display: grid; justify-items: center; gap: 2px; }
+.comparison-col-head svg { color: #37d5dc; }
+.comparison-col-head span { font-size: 12px; }
+.comparison-baseline { font-size: 9px; color: #6f7d81; }
+.comparison-cell { display: grid; justify-items: center; gap: 2px; min-width: 0; }
+.comparison-value { color: #f0f4f5; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.comparison-delta { font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.comparison-note, .comparison-caveat { margin: 8px 0 0; color: #8d9a9e; font-size: 11px; }
+.comparison-attr { margin-bottom: 8px; }
+.comparison-attr p { margin: 0; font-size: 13px; color: #e8eef0; }
+.comparison-attr-env { color: #9aa6aa; font-size: 11px; }
+.comparison-chart { height: 200px; }
+.comparison-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.comparison-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 11px; color: #cfd8da; }
+.comparison-legend span { display: flex; align-items: center; gap: 6px; }
+.comparison-legend i { width: 18px; height: 0; border-top: 2px solid currentColor; }
+.compare-button { color: #b0d8f0 !important; }
+.compare-button:disabled { color: #647276 !important; }
+

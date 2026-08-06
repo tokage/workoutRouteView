@@ -22,6 +22,8 @@ function Sidebar({
   onSelectAll,
   onDeselectAll,
   onInvert,
+  canCompare,
+  onCompare,
 }) {
   const years = [...new Set(data.routes.map((route) => route.year))].sort((a, b) => b - a)
 
@@ -106,6 +108,14 @@ function Sidebar({
           <button onClick={onSelectAll}>全选</button>
           <button onClick={onInvert}><Shuffle size={13} />反选</button>
           <button onClick={onDeselectAll}><X size={13} />不选</button>
+          <button
+            className="compare-button"
+            onClick={onCompare}
+            disabled={!canCompare}
+            title={canCompare ? '对比选中的路线' : '至少选择 2 条路线'}
+          >
+            对比 ({visibleIds.size})
+          </button>
         </div>
       )}
 

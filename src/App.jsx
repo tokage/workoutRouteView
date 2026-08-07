@@ -4,6 +4,8 @@ import MetricPanel from './components/MetricPanel'
 import RouteDetails from './components/RouteDetails'
 import Sidebar from './components/Sidebar'
 import ComparisonPanel from './components/ComparisonPanel'
+import ViewSwitch from './components/ViewSwitch'
+import TrendView from './components/TrendView'
 import { apiRouteRepository } from './routeRepository'
 
 export default function App() {
@@ -20,6 +22,10 @@ export default function App() {
   const [metricElapsedSec, setMetricElapsedSec] = useState(0)
   const [metricState, setMetricState] = useState({ routeId: null, status: 'idle', data: null })
   const [tracksVersion, setTracksVersion] = useState(0)
+  // 主视图（T4.6）：'map' | 'trend'。
+  // 只切换 map-panel 内的渲染，data / visibleIds / 各级缓存都留在 App 层，
+  // 来回切换不会卸载已加载的路线数据，也就不会重新拉全量。
+  const [view, setView] = useState('map')
   // 对比面板（T3.4）：选中的 ≤3 条路线 + 是否打开
   const [compareOpen, setCompareOpen] = useState(false)
   const [compareRoutes, setCompareRoutes] = useState([])
@@ -229,33 +235,42 @@ export default function App() {
         onCompare={handleCompare}
       />
       <section className="map-panel">
-        <MapCanvas
-          key={fitKey}
-          routes={displayRoutes}
-          selected={selected}
-          visibleIds={visibleIds}
-          focusElapsedSec={metricsOpen ? metricElapsedSec : null}
-          onFocusElapsedSec={setMetricElapsedSec}
-        />
-        {metricsOpen && (
-          <MetricPanel
-            route={selected}
-            metrics={metricState.routeId === selected?.id ? metricState.data : null}
-            status={metricState.routeId === selected?.id ? metricState.status : 'loading'}
-            elapsedSec={metricElapsedSec}
-            onElapsedSec={setMetricElapsedSec}
-            onClose={() => setMetricsOpen(false)}
-          />
-        )}
-        <RouteDetails
-          route={selected}
-          metricsOpen={metricsOpen}
-          onToggleMetrics={handleToggleMetrics}
-          onFit={handleFit}
-          onShowAll={handleShowAll}
-        />
-        {compareOpen && compareRoutes.length >= 2 && (
-          <ComparisonPanel routes={compareRoutes} onClose={() => setCompareOpen(false)} />
+        <ViewSwitch view={view} onChange={setView} />
+        {/* 趋势视图只替换 map-panel 内的渲染。data / visibleIds / metricsCache /
+            tracksCache 全部留在 App 层，切回地图时不重新拉取任何数据。 */}
+        {view === 'trend' ? (
+          <TrendView />
+        ) : (
+          <>
+            <MapCanvas
+              key={fitKey}
+              routes={displayRoutes}
+              selected={selected}
+              visibleIds={visibleIds}
+              focusElapsedSec={metricsOpen ? metricElapsedSec : null}
+              onFocusElapsedSec={setMetricElapsedSec}
+            />
+            {metricsOpen && (
+              <MetricPanel
+                route={selected}
+                metrics={metricState.routeId === selected?.id ? metricState.data : null}
+                status={metricState.routeId === selected?.id ? metricState.status : 'loading'}
+                elapsedSec={metricElapsedSec}
+                onElapsedSec={setMetricElapsedSec}
+                onClose={() => setMetricsOpen(false)}
+              />
+            )}
+            <RouteDetails
+              route={selected}
+              metricsOpen={metricsOpen}
+              onToggleMetrics={handleToggleMetrics}
+              onFit={handleFit}
+              onShowAll={handleShowAll}
+            />
+            {compareOpen && compareRoutes.length >= 2 && (
+              <ComparisonPanel routes={compareRoutes} onClose={() => setCompareOpen(false)} />
+            )}
+          </>
         )}
       </section>
     </main>

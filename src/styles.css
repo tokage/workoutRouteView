@@ -385,3 +385,75 @@ button { color: inherit; }
 .compare-button { color: #b0d8f0 !important; }
 .compare-button:disabled { color: #647276 !important; }
 
+/* ── 趋势视图（T4.6，视觉对齐 iOS TrendView）───────────────── */
+
+/* 「地图 / 趋势」切换：复用 .activity-tabs 的分段控件外观，只改列数与定位 */
+.view-switch {
+  position: absolute;
+  z-index: 810;
+  top: 20px;
+  left: 20px;
+  width: 168px;
+  margin: 0;
+  grid-template-columns: repeat(2, 1fr);
+  background: #0e1719e8;
+  backdrop-filter: blur(12px);
+}
+/* 粒度分段：同样复用 .activity-tabs，三列 */
+.trend-granularity { grid-template-columns: repeat(3, 1fr); margin: 0; }
+
+.trend-view {
+  position: absolute;
+  inset: 0;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 74px 20px 20px;
+  overflow: auto;
+  background: #0b1113;
+}
+.trend-toolbar { display: grid; flex: 0 0 auto; gap: 10px; }
+/* 与对比面板共用 .comparison-card 的边框 / 圆角 / 底色，不另起一套卡片样式 */
+.trend-card { flex: 0 0 auto; }
+
+.trend-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.trend-metric { display: grid; gap: 4px; padding: 10px 11px; border-radius: 9px; background: #141e21; }
+.trend-metric-label { color: #9aa6aa; font-size: 11px; }
+.trend-metric strong { color: #f0f4f5; font-size: 19px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.trend-metric small { margin-left: 3px; color: #8d9a9e; font-size: 11px; font-weight: 400; }
+
+.trend-delta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid #1f2c2f;
+}
+.trend-delta { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 与 iOS TrendDirection.tint 同色：涨=青，跌=橙，持平/无数据=灰 */
+.trend-delta-up { color: #37d5dc; }
+.trend-delta-down { color: #f5a23b; }
+.trend-delta-flat, .trend-delta-none { color: #8d9a9e; }
+
+.trend-chart { height: 168px; }
+.trend-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.trend-bar { fill: var(--activity-color); fill-opacity: 0.45; }
+.trend-bar-current { fill-opacity: 1; }
+.trend-line { fill: none; stroke: #f5a23b; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.trend-point { fill: #f5a23b; }
+.trend-axis-label { fill: #748387; font-size: 10px; }
+
+.trend-empty {
+  display: grid;
+  flex: 1 1 auto;
+  place-items: center;
+  margin: 0;
+  color: #829095;
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: center;
+}
+

@@ -115,6 +115,39 @@ export const apiRouteRepository = {
     return (raw.coordinates || []).map((c) => [c.lat, c.lon, c.elevation, c.timeOffset])
   },
 
+  /**
+   * 周期聚合（T4.6 趋势视图）。
+   *
+   * ★直接消费 iOS 端 `/api/summary`，**Web 侧不重算聚合**——架构硬规则
+   * 「派生数据只在 Swift 算一次」。在 JS 里镜像一遍 SummaryBuilder 会导致
+   * ISO 周边界 / 补零 / 加权心率三处口径迟早漂开，两端数字对不上。
+   *
+   * 端点行为（见 `APIRouter.summaryResult`）：
+   * - 默认 `granularity=month`；字段为 **camelCase**、时间为 ISO 8601
+   * - 参数非法 → 400 + `{error, message}`，这里把 message 抛给 UI 原样展示
+   * - `routes.json` 缺失 → **200 + 空桶**（「还没同步」是正常态，不是故障），
+   *   照常返回让 UI 渲染友好空态
+   *
+   * @param {{granularity?: string, activityType?: string|null}} options
+   * @returns {Promise<{granularity: string, activityFilter: string, buckets: Array<object>, generatedAt: string|null}>}
+   */
+  async getSummary({ granularity = 'month', activityType = null } = {}) {
+    const params = new URLSearchParams({ granularity })
+    if (activityType) params.set('type', activityType)
+
+    const resp = await fetch(`/api/summary?${params.toString()}`)
+    const raw = await resp.json().catch(() => null)
+    if (!resp.ok) {
+      throw new Error((raw && raw.message) || '趋势数据加载失败')
+    }
+    return {
+      granularity: (raw && raw.granularity) || granularity,
+      activityFilter: (raw && raw.activityFilter) || 'all',
+      buckets: Array.isArray(raw && raw.buckets) ? raw.buckets : [],
+      generatedAt: (raw && raw.generatedAt) || null,
+    }
+  },
+
   /** 批量拉取天气（T3.5 / T3.4 对比面板）：只读 iOS 本地缓存，不触发 WeatherKit。
    *  返回 workoutId → WorkoutWeather 的 map；未命中的 id 直接不出现（不报错）。 */
   async getWeather(ids) {

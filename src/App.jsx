@@ -205,7 +205,7 @@ export default function App() {
     return (
       <main className="state-screen">
         <h1>路线数据还没准备好</h1>
-        <p>{error}。请确认 iPhone 上的 RouteLens 服务已启动。</p>
+        <p>{error}。请确认 iPhone 上的 TraceLens 服务已启动。</p>
       </main>
     )
   }

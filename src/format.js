@@ -1,11 +1,24 @@
-const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-})
+import { langToIntl } from './i18n/format.js'
 
-export function formatDate(value) {
-  return dateFormatter.format(new Date(value))
+const dateFormatters = new Map()
+
+function dateFormatter(locale) {
+  if (!dateFormatters.has(locale)) {
+    dateFormatters.set(
+      locale,
+      new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }),
+    )
+  }
+  return dateFormatters.get(locale)
+}
+
+/**
+ * 日期展示（本地化）：默认 zh-CN（与现网一致，tests/format.test.mjs 不破坏）。
+ * @param {string|number|Date} value
+ * @param {string} [lang='zh-CN'] TraceLens 语言键或 Intl locale
+ */
+export function formatDate(value, lang = 'zh-CN') {
+  return dateFormatter(langToIntl(lang)).format(new Date(value))
 }
 
 export function formatDuration(minutes) {

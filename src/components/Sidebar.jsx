@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CheckSquare, ChevronRight, Search, Shuffle, X } from 'lucide-react'
 import { ACTIVITY, ACTIVITY_ORDER } from '../constants'
 import { formatDate, formatDuration, formatPaceSeconds } from '../format'
@@ -25,6 +26,8 @@ function Sidebar({
   canCompare,
   onCompare,
 }) {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.resolvedLanguage || i18n.language || 'en'
   const years = [...new Set(data.routes.map((route) => route.year))].sort((a, b) => b - a)
 
   const handleRowClick = (id) => {
@@ -44,8 +47,8 @@ function Sidebar({
           <span />
         </div>
         <div>
-          <h1>我的运动路线</h1>
-          <p>Apple 健康 · {data.routeCount} 条轨迹</p>
+          <h1>{t('sidebar.title')}</h1>
+          <p>{t('sidebar.routeCount', { count: data.routeCount })}</p>
         </div>
       </header>
 
@@ -56,12 +59,12 @@ function Sidebar({
           name="route-search"
           value={search}
           onChange={(event) => onSearch(event.target.value)}
-          placeholder="搜索日期或来源"
-          aria-label="搜索日期或来源"
+          placeholder={t('sidebar.searchPlaceholder')}
+          aria-label={t('sidebar.searchPlaceholder')}
         />
       </label>
 
-      <div className="activity-tabs" aria-label="运动类型筛选">
+      <div className="activity-tabs" aria-label={t('sidebar.activityFilterAria')}>
         {ACTIVITY_ORDER.map((key) => (
           <button
             className={category === key ? 'active' : ''}
@@ -72,14 +75,14 @@ function Sidebar({
             style={{ '--activity-color': ACTIVITY[key].color }}
           >
             {key !== 'all' && <ActivityIcon category={key} size={15} />}
-            {ACTIVITY[key].label}
+            {t(ACTIVITY[key].labelKey)}
           </button>
         ))}
       </div>
 
       <div className="filter-row">
         <label>
-          <span>年份</span>
+          <span>{t('sidebar.yearLabel')}</span>
           <select
             id="year-filter"
             name="year"
@@ -87,9 +90,9 @@ function Sidebar({
             value={year}
             onChange={(event) => onYear(event.target.value)}
           >
-            <option value="all">全部年份</option>
+            <option value="all">{t('sidebar.allYears')}</option>
             {years.map((item) => (
-              <option value={item} key={item}>{item}年</option>
+              <option value={item} key={item}>{t('sidebar.yearOption', { year: item })}</option>
             ))}
           </select>
         </label>
@@ -99,29 +102,29 @@ function Sidebar({
           aria-pressed={multiSelect}
         >
           <CheckSquare size={16} />
-          {multiSelect ? '退出' : '多选'}
+          {multiSelect ? t('sidebar.exitMulti') : t('sidebar.multiSelect')}
         </button>
       </div>
 
       {multiSelect && (
         <div className="batch-actions">
-          <button onClick={onSelectAll}>全选</button>
-          <button onClick={onInvert}><Shuffle size={13} />反选</button>
-          <button onClick={onDeselectAll}><X size={13} />不选</button>
+          <button onClick={onSelectAll}>{t('sidebar.selectAll')}</button>
+          <button onClick={onInvert}><Shuffle size={13} />{t('sidebar.invert')}</button>
+          <button onClick={onDeselectAll}><X size={13} />{t('sidebar.deselectAll')}</button>
           <button
             className="compare-button"
             onClick={onCompare}
             disabled={!canCompare}
-            title={canCompare ? '对比选中的路线' : '至少选择 2 条路线'}
+            title={canCompare ? t('sidebar.compareTitle') : t('sidebar.compareDisabledTitle')}
           >
-            对比 ({visibleIds.size})
+            {t('sidebar.compare', { count: visibleIds.size })}
           </button>
         </div>
       )}
 
       <div className="list-heading">
-        <span>共 {routes.length} 条</span>
-        <span>{category === 'all' ? '全部运动' : ACTIVITY[category].label}</span>
+        <span>{t('sidebar.totalCount', { count: routes.length })}</span>
+        <span>{category === 'all' ? t('sidebar.allActivities') : t(ACTIVITY[category].labelKey)}</span>
       </div>
 
       <div className="route-list">
@@ -144,10 +147,10 @@ function Sidebar({
                 <span className="route-icon"><ActivityIcon category={route.category} /></span>
               )}
               <span className="route-copy">
-                <time>{formatDate(route.date)}</time>
-                <strong>{meta.label}</strong>
+                <time>{formatDate(route.date, lang)}</time>
+                <strong>{t(meta.labelKey)}</strong>
                 <small>
-                  <span>{route.distanceKm ? `${route.distanceKm.toFixed(2)} km` : '距离未知'}</span>
+                  <span>{route.distanceKm ? `${route.distanceKm.toFixed(2)} km` : t('sidebar.distanceUnknown')}</span>
                   <span>{formatDuration(route.durationMin)}</span>
                   <span>{route.ascentM != null ? `${route.ascentM.toFixed(2)} m` : '—'}</span>
                   <span>{formatPaceSeconds(route.avgPace)} /km</span>
@@ -158,7 +161,7 @@ function Sidebar({
             </button>
           )
         })}
-        {routes.length === 0 && <p className="empty-list">没有符合条件的轨迹。</p>}
+        {routes.length === 0 && <p className="empty-list">{t('sidebar.empty')}</p>}
       </div>
     </aside>
   )

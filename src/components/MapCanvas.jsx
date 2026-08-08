@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import { ACTIVITY } from '../constants'
 import { nearestRoutePoint } from '../metrics'
@@ -22,6 +23,7 @@ export default function MapCanvas({
   focusElapsedSec,
   onFocusElapsedSec,
 }) {
+  const { t } = useTranslation()
   const mapNode = useRef(null)
   const mapRef = useRef(null)
   const routeLayerRef = useRef(null)
@@ -93,8 +95,8 @@ export default function MapCanvas({
       const first = selected.points?.[0]
       const last = selected.points?.[selected.points.length - 1]
       if (first && last) {
-        L.marker([first[0], first[1]], { icon: marker(color, '起') }).addTo(layer)
-        L.marker([last[0], last[1]], { icon: marker(color, '终') }).addTo(layer)
+        L.marker([first[0], first[1]], { icon: marker(color, t('map.start')) }).addTo(layer)
+        L.marker([last[0], last[1]], { icon: marker(color, t('map.end')) }).addTo(layer)
       }
     }
 
@@ -104,7 +106,7 @@ export default function MapCanvas({
         padding: single ? [90, 90] : [60, 60],
       })
     }
-  }, [routes, selected, visibleIds, onFocusElapsedSec])
+  }, [routes, selected, visibleIds, onFocusElapsedSec, t])
 
   // ── focus layer (metric playback) ────────────────────────
 
@@ -126,5 +128,5 @@ export default function MapCanvas({
     }).addTo(layer)
   }, [selected, focusElapsedSec])
 
-  return <div className="map" ref={mapNode} aria-label="运动轨迹地图" />
+  return <div className="map" ref={mapNode} aria-label={t('map.ariaLabel')} />
 }

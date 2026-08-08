@@ -19,6 +19,7 @@ function dateParts(iso) {
  * - 列表不再内嵌 coordinates（已移入 metrics），轨迹按需经 getRouteTrack 拉取
  * - bounds 直接读后端 bbox，不再前端 computeBounds
  * - 接回后端 avgPace/avgHeartRate/maxHeartRate/endDate/hasRoute/totalDescent
+ * - source 为稳定标识 'appleHealth'（原硬编码中文「Apple 健康」），展示/搜索时翻译
  */
 function transformRoute(raw) {
   const { year, date } = dateParts(raw.startDate)
@@ -42,7 +43,7 @@ function transformRoute(raw) {
     maxHeartRate: raw.maxHeartRate ?? null,
     endDate: raw.endDate ?? null,
     hasRoute: raw.hasRoute !== false,         // hasRoute=false 不画轨迹（D1）
-    source: 'Apple 健康',
+    source: 'appleHealth',
     points: [],                               // 占位；地图渲染时由 App 按需注入 getRouteTrack 结果
     bounds,
   }
@@ -92,7 +93,8 @@ function transformMetrics(raw) {
 export const apiRouteRepository = {
   async listRoutes() {
     const resp = await fetch('/api/routes')
-    if (!resp.ok) throw new Error('未找到路线数据')
+    // 错误码（不携带后端中文 message），UI 统一映射 errors.* 展示
+    if (!resp.ok) throw new Error('ROUTES_NOT_FOUND')
     const raw = await resp.json()
     // v2 信封：{schemaVersion, total, routes}（v1 裸数组兜底兼容）
     const routes = (Array.isArray(raw) ? raw : raw.routes || []).map(transformRoute)
@@ -102,7 +104,7 @@ export const apiRouteRepository = {
   async getRouteMetrics(route) {
     if (!route?.id) return null
     const resp = await fetch(`/api/metrics/${route.id}`)
-    if (!resp.ok) throw new Error('未找到路线指标数据')
+    if (!resp.ok) throw new Error('METRICS_NOT_FOUND')
     return transformMetrics(await resp.json())
   },
 
@@ -110,7 +112,7 @@ export const apiRouteRepository = {
   async getRouteTrack(routeId) {
     if (!routeId) return []
     const resp = await fetch(`/api/metrics/${routeId}`)
-    if (!resp.ok) throw new Error('未找到轨迹数据')
+    if (!resp.ok) throw new Error('TRACK_NOT_FOUND')
     const raw = await resp.json()
     return (raw.coordinates || []).map((c) => [c.lat, c.lon, c.elevation, c.timeOffset])
   },
@@ -124,7 +126,8 @@ export const apiRouteRepository = {
    *
    * 端点行为（见 `APIRouter.summaryResult`）：
    * - 默认 `granularity=month`；字段为 **camelCase**、时间为 ISO 8601
-   * - 参数非法 → 400 + `{error, message}`，这里把 message 抛给 UI 原样展示
+   * - 参数非法 → 400 + `{error, message}`（message 为中文，**仅 console.warn 供调试**，
+   *   **永不直接抛给 UI**；UI 统一展示 `errors.summaryLoadFailed`）
    * - `routes.json` 缺失 → **200 + 空桶**（「还没同步」是正常态，不是故障），
    *   照常返回让 UI 渲染友好空态
    *
@@ -138,7 +141,10 @@ export const apiRouteRepository = {
     const resp = await fetch(`/api/summary?${params.toString()}`)
     const raw = await resp.json().catch(() => null)
     if (!resp.ok) {
-      throw new Error((raw && raw.message) || '趋势数据加载失败')
+      if (raw && raw.message) {
+        console.warn(`[routeRepository] /api/summary 失败（后端 message 仅供调试）: ${raw.message}`)
+      }
+      throw new Error('SUMMARY_LOAD_FAILED')
     }
     return {
       granularity: (raw && raw.granularity) || granularity,

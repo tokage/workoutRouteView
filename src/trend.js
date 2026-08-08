@@ -9,17 +9,24 @@
  * 这里只负责**展示层**的三件事：
  *   1. 环比百分比（含除零保护，绝不产出 NaN / Infinity）
  *   2. 单位换算与文案（骑行按 km/h，其余按 秒/km，与 iOS `ActivityType.usesPace` 同口径）
- *   3. 纯 SVG 图表几何（本仓库无图表库，且构建产物要塞进 iOS Bundle，体积敏感，不新增依赖）
+ *   3. 纯 SVG 图表几何（本仓库无图表库）
+ *
+ * i18n（方案 v1.1 §4.4）：i18n 由 i18next 提供，体积增量已在方案 v1.1 评估
+ * （≤ ~20KB gzip，相对 iOS Bundle 可忽略）。本文件只 import i18next core（无 React），
+ * 文案函数追加可选 `t` 参数，默认值为 core 实例绑定 zh-Hans（源语言）的 t——
+ * 与 UI 运行时语言（回退 en）语义分离，保证现有约 12 处中文断言零破坏。
  *
  * 无 DOM / React 依赖，故可被 `tests/trend.test.mjs` 用 `node --test` 直接单测
  * （测试跑不了 .jsx，所以纯逻辑必须留在 .js 里——与 comparison.js 的组织方式一致）。
  */
+import { t as coreT } from './i18n/core.js'
+import { monthName as localizedMonthName } from './i18n/format.js'
 
-/** 粒度分段控件选项，顺序与 iOS `TrendView` 一致（周/月/年） */
+/** 粒度分段控件选项，顺序与 iOS `TrendView` 一致（周/月/年）；label 为 i18n 键 */
 export const GRANULARITIES = [
-  { key: 'week', label: '周' },
-  { key: 'month', label: '月' },
-  { key: 'year', label: '年' },
+  { key: 'week', labelKey: 'trend.granularityWeek' },
+  { key: 'month', labelKey: 'trend.granularityMonth' },
+  { key: 'year', labelKey: 'trend.granularityYear' },
 ]
 
 /**
@@ -77,12 +84,13 @@ export function percentDelta(current, previous) {
 /**
  * 环比文案。`null` → 「—」；小于 0.05% 视为持平（避免「+0.0%」这种噪声）。
  * @param {number|null} percent
+ * @param {(key: string, options?: object) => string} [t=coreT] i18n 翻译函数
  * @returns {string}
  */
-export function formatDeltaText(percent) {
+export function formatDeltaText(percent, t = coreT) {
   if (percent === null || !Number.isFinite(percent)) return '—'
   const rounded = Math.round(percent * 10) / 10
-  if (Math.abs(rounded) < 0.05) return '持平'
+  if (Math.abs(rounded) < 0.05) return t('trend.flat')
   return `${rounded > 0 ? '+' : ''}${rounded.toFixed(1)}%`
 }
 
@@ -223,12 +231,13 @@ export function toPath(segment) {
 }
 
 /**
- * 桶 key → 坐标轴短标签。"2026-W31" → "W31"；"2026-08" → "8月"；"2026" → "2026"
+ * 桶 key → 坐标轴短标签。"2026-W31" → "W31"；"2026-08" → "8月"/"8"；"2026" → "2026"
  * @param {string} key
  * @param {string} granularity
+ * @param {(key: string, options?: object) => string} [t=coreT] i18n 翻译函数
  * @returns {string}
  */
-export function shortLabel(key, granularity) {
+export function shortLabel(key, granularity, t = coreT) {
   if (typeof key !== 'string' || !key) return ''
   if (granularity === 'week') {
     const index = key.indexOf('-W')
@@ -236,7 +245,7 @@ export function shortLabel(key, granularity) {
   }
   if (granularity === 'month') {
     const month = key.split('-')[1]
-    return month ? `${Number(month)}月` : key
+    return month ? t('trend.monthShort', { month: Number(month) }) : key
   }
   return key
 }
@@ -245,26 +254,31 @@ export function shortLabel(key, granularity) {
  * 桶 key → 周期标题。与 iOS `SummaryBuilder.displayTitle` 文案一致。
  * @param {string} key
  * @param {string} granularity
+ * @param {(key: string, options?: object) => string} [t=coreT] i18n 翻译函数
+ * @param {string} [lang='zh-CN'] Intl locale（用于月份名）
  * @returns {string}
  */
-export function periodTitle(key, granularity) {
+export function periodTitle(key, granularity, t = coreT, lang = 'zh-CN') {
   if (typeof key !== 'string' || !key) return '—'
   if (granularity === 'week') {
     const [year, week] = key.split('-W')
-    return week ? `${year}年第${Number(week)}周` : key
+    return week ? t('trend.periodWeek', { year, week: Number(week) }) : key
   }
   if (granularity === 'month') {
     const [year, month] = key.split('-')
-    return month ? `${year}年${Number(month)}月` : key
+    // 两种语言插值字段不同：zh 用数字月（2026年8月），en 用本地化月份名（August 2026）
+    return month
+      ? t('trend.periodMonth', { year, month: Number(month), monthName: localizedMonthName(month, lang) })
+      : key
   }
-  return `${key}年`
+  return t('trend.periodYear', { year: key })
 }
 
 /** 环比行的标题文案，与 iOS `PeriodGranularity.comparisonLabel` 一致 */
-export function comparisonLabel(granularity) {
-  if (granularity === 'week') return '较上周'
-  if (granularity === 'year') return '较上年'
-  return '较上月'
+export function comparisonLabel(granularity, t = coreT) {
+  if (granularity === 'week') return t('trend.compareWeek')
+  if (granularity === 'year') return t('trend.compareYear')
+  return t('trend.compareMonth')
 }
 
 /**
@@ -286,14 +300,15 @@ export function pickPeriods(buckets) {
  * `previous` 为 null（首个周期）时四项全部返回 null → 渲染「—」。
  * @param {object|null} current
  * @param {object|null} previous
+ * @param {(key: string, options?: object) => string} [t=coreT] i18n 翻译函数
  * @returns {Array<{title: string, percent: number|null}>}
  */
-export function buildDeltas(current, previous) {
+export function buildDeltas(current, previous, t = coreT) {
   const fields = [
-    { title: '距离', pick: (bucket) => bucket.distance },
-    { title: '时长', pick: (bucket) => bucket.duration },
-    { title: '次数', pick: (bucket) => bucket.count },
-    { title: '爬升', pick: (bucket) => bucket.ascent },
+    { title: t('trend.deltaDistance'), pick: (bucket) => bucket.distance },
+    { title: t('trend.deltaDuration'), pick: (bucket) => bucket.duration },
+    { title: t('trend.deltaCount'), pick: (bucket) => bucket.count },
+    { title: t('trend.deltaAscent'), pick: (bucket) => bucket.ascent },
   ]
   return fields.map(({ title, pick }) => ({
     title,

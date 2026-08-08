@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Map, TrendingUp } from 'lucide-react'
 import { ACTIVITY } from '../constants'
 
@@ -10,19 +11,20 @@ import { ACTIVITY } from '../constants'
  * 不自创设计语言。
  */
 const VIEWS = [
-  { key: 'map', label: '地图', Icon: Map },
-  { key: 'trend', label: '趋势', Icon: TrendingUp },
+  { key: 'map', labelKey: 'viewSwitch.map', Icon: Map },
+  { key: 'trend', labelKey: 'viewSwitch.trend', Icon: TrendingUp },
 ]
 
 function ViewSwitch({ view, onChange }) {
+  const { t } = useTranslation()
   return (
     <div
       className="activity-tabs view-switch"
       role="tablist"
-      aria-label="视图切换"
+      aria-label={t('viewSwitch.aria')}
       style={{ '--activity-color': ACTIVITY.all.color }}
     >
-      {VIEWS.map(({ key, label, Icon }) => (
+      {VIEWS.map(({ key, labelKey, Icon }) => (
         <button
           key={key}
           type="button"
@@ -32,7 +34,7 @@ function ViewSwitch({ view, onChange }) {
           onClick={() => onChange(key)}
         >
           <Icon size={14} aria-hidden="true" />
-          {label}
+          {t(labelKey)}
         </button>
       ))}
     </div>

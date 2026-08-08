@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import {
   build,
@@ -53,18 +54,23 @@ function toSummary(route) {
  * 无横向滚动（差值挂在数值下方小字）；**不含地图叠加**（依赖 T3.4 /api/tracks，尚未落地）。
  */
 export default function ComparisonPanel({ routes, onClose }) {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.resolvedLanguage || i18n.language || 'en'
   const [loading, setLoading] = useState(true)
   const [weather, setWeather] = useState({})
   const [pacePoints, setPacePoints] = useState([])
 
   const orderedRoutes = useMemo(() => order(routes.map(toSummary)), [routes])
-  const columnLabels = useMemo(() => orderedRoutes.map(columnLabel), [orderedRoutes])
+  const columnLabels = useMemo(
+    () => orderedRoutes.map((summary) => columnLabel(summary, t, lang)),
+    [orderedRoutes, t, lang],
+  )
   const baselineIndex = orderedRoutes.length - 1
   const isCrossType = useMemo(
     () => new Set(orderedRoutes.map((r) => r.activityType)).size > 1,
     [orderedRoutes],
   )
-  const table = useMemo(() => build(orderedRoutes, weather), [orderedRoutes, weather])
+  const table = useMemo(() => build(orderedRoutes, weather, t), [orderedRoutes, weather, t])
   const hasWeather = table.weatherRows.length > 0
   const hasAttributions = table.attributions.length > 0
   const displayMode = useMemo(() => {
@@ -86,7 +92,7 @@ export default function ComparisonPanel({ routes, onClose }) {
       ),
     ]).then(([w, paceResults]) => {
       if (!active) return
-      const points = orderedRoutes.flatMap((r, i) => normalizedPace(paceResults[i], r))
+      const points = orderedRoutes.flatMap((r, i) => normalizedPace(paceResults[i], r, 200, t, lang))
       setWeather(w || {})
       setPacePoints(points)
       setLoading(false)
@@ -97,7 +103,7 @@ export default function ComparisonPanel({ routes, onClose }) {
       setLoading(false)
     })
     return () => { active = false }
-  }, [orderedRoutes])
+  }, [orderedRoutes, t, lang])
 
   // 归一化配速曲线：按里程进度分线（X 0–100%，Y 配速/速度），复用 buildLineGeometry。
   const lineGeometries = useMemo(() => {
@@ -119,13 +125,13 @@ export default function ComparisonPanel({ routes, onClose }) {
   const headRowStyle = { '--cols': cols }
 
   return (
-    <section className="comparison-panel" aria-label="指标对比面板">
+    <section className="comparison-panel" aria-label={t('comparison.panelAria')}>
       <header className="comparison-header">
-        <strong>指标对比</strong>
-        <button type="button" onClick={onClose} aria-label="关闭对比面板"><X size={18} /></button>
+        <strong>{t('comparison.title')}</strong>
+        <button type="button" onClick={onClose} aria-label={t('comparison.closeAria')}><X size={18} /></button>
       </header>
 
-      {loading && <p className="comparison-loading">正在载入对比数据…</p>}
+      {loading && <p className="comparison-loading">{t('comparison.loading')}</p>}
 
       {/* 运动内指标卡 */}
       <div className="comparison-card">
@@ -135,7 +141,7 @@ export default function ComparisonPanel({ routes, onClose }) {
             <div className="comparison-col-head" key={r.id}>
               <ActivityIcon category={categoryOf(r)} />
               <span>{columnLabels[i]}</span>
-              <span className="comparison-baseline">{i === baselineIndex ? '基准' : ' '}</span>
+              <span className="comparison-baseline">{i === baselineIndex ? t('comparison.baseline') : ' '}</span>
             </div>
           ))}
         </div>
@@ -160,14 +166,14 @@ export default function ComparisonPanel({ routes, onClose }) {
           </div>
         ))}
         {isCrossType && (
-          <p className="comparison-note">跨运动类型对比：运动内差值已隐藏，天气差异照常展示</p>
+          <p className="comparison-note">{t('comparison.crossTypeNote')}</p>
         )}
       </div>
 
       {/* 天气卡（有数据才出现） */}
       {hasWeather && (
         <div className="comparison-card">
-          <h3 className="comparison-card-title">天气</h3>
+          <h3 className="comparison-card-title">{t('comparison.weatherTitle')}</h3>
           {table.weatherRows.map((row) => (
             <div className="comparison-row" style={headRowStyle} key={row.key}>
               <span className="comparison-label">{row.title}</span>
@@ -194,21 +200,21 @@ export default function ComparisonPanel({ routes, onClose }) {
       {/* 归因卡（禁因果句式；固定小字） */}
       {hasAttributions && (
         <div className="comparison-card">
-          <h3 className="comparison-card-title">效能归因（仅并列差异）</h3>
+          <h3 className="comparison-card-title">{t('comparison.attributionTitle')}</h3>
           {table.attributions.map((item, i) => (
             <div className="comparison-attr" key={i}>
               <p>{item.deltaText}</p>
               {item.envText && <p className="comparison-attr-env">{item.envText}</p>}
             </div>
           ))}
-          <p className="comparison-caveat">仅展示同期差异，不代表因果</p>
+          <p className="comparison-caveat">{t('comparison.caveat')}</p>
         </div>
       )}
 
       {/* 归一化配速曲线卡 */}
       <div className="comparison-card">
-        <h3 className="comparison-card-title">配速曲线（按里程 0–100%）</h3>
-        <p className="comparison-card-sub">效能变化过程证据：同一段路这次快了还是慢了</p>
+        <h3 className="comparison-card-title">{t('comparison.paceCurveTitle')}</h3>
+        <p className="comparison-card-sub">{t('comparison.paceCurveSub')}</p>
         {lineGeometries.length ? (
           <>
             <div className="comparison-chart">
@@ -230,10 +236,10 @@ export default function ComparisonPanel({ routes, onClose }) {
             </div>
           </>
         ) : (
-          <p className="comparison-empty">所选记录暂无配速序列，无法绘制对比曲线</p>
+          <p className="comparison-empty">{t('comparison.noPaceSamples')}</p>
         )}
         {displayMode === 'mixed' && (
-          <p className="comparison-card-sub">混合运动类型：统一按 秒/km 展示</p>
+          <p className="comparison-card-sub">{t('comparison.mixedNote')}</p>
         )}
       </div>
     </section>

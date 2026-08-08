@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import {
   buildLineGeometry,
@@ -26,6 +27,7 @@ function CombinedMetricChart({
   elapsedSec,
   onElapsedSec,
 }) {
+  const { t } = useTranslation()
   const heartRateSamples = heartRate?.samples || EMPTY_SAMPLES
   const elevationSamples = elevation?.samples || EMPTY_SAMPLES
   const heartRateGeometry = useMemo(
@@ -55,7 +57,7 @@ function CombinedMetricChart({
   const sharedGeometry = heartRateGeometry || elevationGeometry
   const heartRateSummary = [
     Number.isFinite(heartRate?.averageBpm)
-      ? `平均 ${displayValue(heartRate.averageBpm)}`
+      ? t('metricPanel.avg', { value: displayValue(heartRate.averageBpm) })
       : null,
     Number.isFinite(heartRate?.minimumBpm) && Number.isFinite(heartRate?.maximumBpm)
       ? `${displayValue(heartRate.minimumBpm)}–${displayValue(heartRate.maximumBpm)} bpm`
@@ -87,19 +89,19 @@ function CombinedMetricChart({
   return (
     <section className="metric-chart">
       <div className="metric-chart-heading">
-        <strong>心率与海拔</strong>
-        <span>共享运动时间轴</span>
+        <strong>{t('metricPanel.title')}</strong>
+        <span>{t('metricPanel.sharedTimeline')}</span>
       </div>
-      <div className="metric-series-legend" aria-label="曲线说明">
+      <div className="metric-series-legend" aria-label={t('metricPanel.legendAria')}>
         <div>
           <i className="metric-series-swatch" style={{ '--metric-color': HEART_RATE_COLOR }} />
-          <strong>心率</strong>
-          <span>{heartRateGeometry ? heartRateSummary : '无数据'}</span>
+          <strong>{t('metricPanel.heartRate')}</strong>
+          <span>{heartRateGeometry ? heartRateSummary : t('metricPanel.noData')}</span>
         </div>
         <div>
           <i className="metric-series-swatch elevation" style={{ '--metric-color': ELEVATION_COLOR }} />
-          <strong>海拔</strong>
-          <span>{elevationGeometry ? elevationSummary : '无数据'}</span>
+          <strong>{t('metricPanel.elevation')}</strong>
+          <span>{elevationGeometry ? elevationSummary : t('metricPanel.noData')}</span>
         </div>
       </div>
       {sharedGeometry ? (
@@ -107,7 +109,7 @@ function CombinedMetricChart({
           className="metric-chart-interaction"
           role="slider"
           tabIndex="0"
-          aria-label="心率与海拔时间位置"
+          aria-label={t('metricPanel.timelineAria')}
           aria-valuemin="0"
           aria-valuemax={Math.round(durationSec)}
           aria-valuenow={Math.round(elapsedSec)}
@@ -160,7 +162,7 @@ function CombinedMetricChart({
           </svg>
         </div>
       ) : (
-        <div className="metric-empty">这次运动没有可用的心率或海拔采样。</div>
+        <div className="metric-empty">{t('metricPanel.noHrElevationSamples')}</div>
       )}
     </section>
   )
@@ -174,6 +176,7 @@ function CombinedMetricChart({
  * - 游标按里程 hover，仅本地读数，不联动地图（Web 四维联动已由时间轴曲线承担）
  */
 function PaceChart({ paceSamples, avgPace, isCycling, totalDistanceM }) {
+  const { t } = useTranslation()
   const [hoverDistance, setHoverDistance] = useState(null)
   const geometry = useMemo(
     () => buildLineGeometry(paceSamples, 1, 2, totalDistanceM, CHART_WIDTH, CHART_HEIGHT),
@@ -192,10 +195,10 @@ function PaceChart({ paceSamples, avgPace, isCycling, totalDistanceM }) {
   return (
     <section className="metric-chart">
       <div className="metric-chart-heading">
-        <strong>配速</strong>
+        <strong>{t('metricPanel.pace')}</strong>
         <span>
-          {isCycling ? '公里/小时' : '秒/公里'}
-          {hasReference ? ` · 平均 ${formatSplitPace(avgPace, isCycling)}` : ''}
+          {isCycling ? t('metricPanel.kmh') : t('metricPanel.secPerKm')}
+          {hasReference ? ` · ${t('metricPanel.avg', { value: formatSplitPace(avgPace, isCycling) })}` : ''}
         </span>
       </div>
       {geometry ? (
@@ -203,7 +206,7 @@ function PaceChart({ paceSamples, avgPace, isCycling, totalDistanceM }) {
           className="metric-chart-interaction"
           role="slider"
           tabIndex="0"
-          aria-label="配速里程位置"
+          aria-label={t('metricPanel.paceAria')}
           aria-valuemin="0"
           aria-valuemax={Math.round(totalDistanceM)}
           aria-valuenow={hoverDistance != null ? Math.round(hoverDistance) : 0}
@@ -248,7 +251,7 @@ function PaceChart({ paceSamples, avgPace, isCycling, totalDistanceM }) {
           </svg>
         </div>
       ) : (
-        <div className="metric-empty">这次运动没有可用的配速数据。</div>
+        <div className="metric-empty">{t('metricPanel.noPaceData')}</div>
       )}
       <div className="pace-readout" aria-live="polite">
         {current ? (
@@ -261,7 +264,7 @@ function PaceChart({ paceSamples, avgPace, isCycling, totalDistanceM }) {
             </strong>
           </>
         ) : (
-          <span>拖动查看任意里程的配速</span>
+          <span>{t('metricPanel.dragHint')}</span>
         )}
       </div>
     </section>
@@ -276,6 +279,7 @@ export default function MetricPanel({
   onElapsedSec,
   onClose,
 }) {
+  const { t } = useTranslation()
   const heartRateSamples = metrics?.heartRate?.samples || EMPTY_SAMPLES
   const elevationSamples = metrics?.elevation?.samples || EMPTY_SAMPLES
   const paceSamples = metrics?.pace || EMPTY_SAMPLES
@@ -296,26 +300,26 @@ export default function MetricPanel({
   const elevationSample = nearestSampleByElapsed(metrics?.elevation?.samples, 1, elapsedSec)
 
   return (
-    <section className="metric-panel" aria-label="心率、海拔、配速与分段面板">
+    <section className="metric-panel" aria-label={t('metricPanel.panelAria')}>
       <header className="metric-panel-header">
         <div>
-          <strong>查看心率、海拔、配速与分段</strong>
+          <strong>{t('metricPanel.header')}</strong>
         </div>
-        <button onClick={onClose} aria-label="关闭指标面板"><X size={18} /></button>
+        <button onClick={onClose} aria-label={t('metricPanel.closeAria')}><X size={18} /></button>
       </header>
 
-      {status === 'loading' && <p className="metric-status">正在载入本机指标数据…</p>}
-      {status === 'error' && <p className="metric-status error">指标数据载入失败。</p>}
+      {status === 'loading' && <p className="metric-status">{t('metricPanel.loading')}</p>}
+      {status === 'error' && <p className="metric-status error">{t('metricPanel.loadFailed')}</p>}
       {status === 'ready' && metrics && (
         <>
           <div className="metric-current" aria-live="polite">
-            <div><span>经过时间</span><strong>{formatElapsedSeconds(elapsedSec)}</strong></div>
-            <div><span>距离</span><strong>{displayValue(elevationSample?.[0] / 1000, 2)} <small>km</small></strong></div>
+            <div><span>{t('metricPanel.elapsed')}</span><strong>{formatElapsedSeconds(elapsedSec)}</strong></div>
+            <div><span>{t('metricPanel.distance')}</span><strong>{displayValue(elevationSample?.[0] / 1000, 2)} <small>km</small></strong></div>
             <div className="metric-current-colored" style={{ '--metric-color': HEART_RATE_COLOR }}>
-              <span>心率</span><strong>{displayValue(heartRateSample?.[1])} <small>bpm</small></strong>
+              <span>{t('metricPanel.heartRate')}</span><strong>{displayValue(heartRateSample?.[1])} <small>bpm</small></strong>
             </div>
             <div className="metric-current-colored" style={{ '--metric-color': ELEVATION_COLOR }}>
-              <span>海拔</span><strong>{displayValue(elevationSample?.[2], 1)} <small>m</small></strong>
+              <span>{t('metricPanel.elevation')}</span><strong>{displayValue(elevationSample?.[2], 1)} <small>m</small></strong>
             </div>
           </div>
           <CombinedMetricChart
@@ -338,7 +342,7 @@ export default function MetricPanel({
           />
         </>
       )}
-      {status === 'ready' && !metrics && <p className="metric-status">这条路线没有可用的指标数据。</p>}
+      {status === 'ready' && !metrics && <p className="metric-status">{t('metricPanel.noMetrics')}</p>}
     </section>
   )
 }

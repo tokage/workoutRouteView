@@ -3,6 +3,10 @@
 // 与 iOS 端阈值、差值方向语义、跨类型处理、禁因果句式逐项一致（注释互引）。
 // 纯函数命名空间，无状态无副作用：不碰 DOM、不发网络，输入相同输出必然相同，便于单测。
 //
+// i18n（方案 v1.1 §4.4）：i18n 由 i18next 提供，体积增量已在方案 v1.1 评估
+// （≤ ~20KB gzip，相对 iOS Bundle 可忽略）。本文件只 import i18next core（无 React），
+// 文案函数追加可选 `t` 参数，默认值为 core 实例绑定 zh-Hans（源语言）的 t。
+//
 // 数据形状（与 iOS RouteSummary / WorkoutWeather 对应，字段名保持一致）：
 //   summary: { id, activityType, startDate(Date|ISO), distance(m), duration(s),
 //              avgPace(sec/km|null), avgHeartRate(bpm|null), maxHeartRate(bpm|null), totalAscent(m) }
@@ -11,7 +15,9 @@
 // pace 序列（来自 /api/metrics/:id，transformMetrics 透出的 [[timeOffset, distance, value]]）：
 //   value 恒为 秒/km，distance 为累计米。
 
-import { formatPaceSeconds, formatSpeedKmh } from './format'
+import { formatPaceSeconds, formatSpeedKmh } from './format.js'
+import { t as coreT } from './i18n/core.js'
+import { langToIntl } from './i18n/format.js'
 
 export const MAX_ROUTES = 3
 
@@ -38,19 +44,20 @@ const DEADBAND = {
   humidityPercent: 1,
 }
 
-// 天气现象 raw value → 中文显示名（镜像 iOS WeatherCondition.displayName）
-export const WEATHER_CONDITION_LABELS = {
-  clear: '晴',
-  partlyCloudy: '多云',
-  cloudy: '阴',
-  rain: '雨',
-  snow: '雪',
-  fog: '雾',
-  wind: '风',
+// 天气现象 raw value → i18n 键（镜像 iOS WeatherCondition.displayName；键值见 weather.*）
+export const WEATHER_CONDITION_KEYS = {
+  clear: 'weather.clear',
+  partlyCloudy: 'weather.partlyCloudy',
+  cloudy: 'weather.cloudy',
+  rain: 'weather.rain',
+  snow: 'weather.snow',
+  fog: 'weather.fog',
+  wind: 'weather.wind',
 }
 
-export function conditionLabel(condition) {
-  return (condition && WEATHER_CONDITION_LABELS[condition]) || '—'
+export function conditionLabel(condition, t = coreT) {
+  const key = condition && WEATHER_CONDITION_KEYS[condition]
+  return key ? t(key) : '—'
 }
 
 // 运动类型是否用配速（镜像 iOS ActivityType.usesPace：除 cycling 外均用 秒/km）
@@ -58,11 +65,11 @@ export function usesPace(summary) {
   return summary.activityType !== 'cycling'
 }
 
-// 列头标签：日期 "M月d日"（镜像 iOS ComparisonBuilder.columnLabel，zh_CN）
-export function columnLabel(summary) {
+// 列头标签：日期 "M/d"（镜像 iOS ComparisonBuilder.columnLabel；Intl locale 由 lang 决定）
+export function columnLabel(summary, t = coreT, lang = 'zh-CN') {
   const date = new Date(summary.startDate)
   if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date)
+  return new Intl.DateTimeFormat(langToIntl(lang), { month: 'numeric', day: 'numeric' }).format(date)
 }
 
 // 统一列序：按开始时间降序（最新在最左），截断到上限 3 条；最后一列 = 基准（最早）
@@ -121,13 +128,13 @@ function numericRow({ key, title, values, polarity, showsDelta, deadband, format
 
 // ── 6 项运动内指标 ────────────────────────────────
 
-function metricRows(routes, isCrossType) {
+function metricRows(routes, isCrossType, t) {
   const showsDelta = !isCrossType
   const pick = (selector) => routes.map(selector)
   const rows = []
 
   rows.push(numericRow({
-    key: 'distance', title: '距离',
+    key: 'distance', title: t('comparison.rowDistance'),
     values: pick((r) => r.distance),
     polarity: 'neutral', showsDelta, deadband: DEADBAND.distanceMeters,
     format: (v) => `${(v / 1000).toFixed(2)} km`,
@@ -135,17 +142,17 @@ function metricRows(routes, isCrossType) {
   }))
 
   rows.push(numericRow({
-    key: 'duration', title: '时长',
+    key: 'duration', title: t('comparison.rowDuration'),
     values: pick((r) => r.duration),
     polarity: 'neutral', showsDelta, deadband: DEADBAND.durationSeconds,
     format: formatDuration,
     formatDelta: (d) => signed(formatDuration(Math.abs(d)), d > 0),
   }))
 
-  rows.push(paceRow(routes, isCrossType))
+  rows.push(paceRow(routes, isCrossType, t))
 
   rows.push(numericRow({
-    key: 'avgHeartRate', title: '均心率',
+    key: 'avgHeartRate', title: t('comparison.rowAvgHeartRate'),
     values: pick((r) => r.avgHeartRate),
     polarity: 'lowerIsBetter', showsDelta, deadband: DEADBAND.heartRateBpm,
     format: (v) => `${Math.round(v)} bpm`,
@@ -153,7 +160,7 @@ function metricRows(routes, isCrossType) {
   }))
 
   rows.push(numericRow({
-    key: 'ascent', title: '爬升',
+    key: 'ascent', title: t('comparison.rowAscent'),
     values: pick((r) => r.totalAscent),
     polarity: 'neutral', showsDelta, deadband: DEADBAND.ascentMeters,
     format: (v) => `${Math.round(v)} m`,
@@ -161,7 +168,7 @@ function metricRows(routes, isCrossType) {
   }))
 
   rows.push(numericRow({
-    key: 'maxHeartRate', title: '最高心率',
+    key: 'maxHeartRate', title: t('comparison.rowMaxHeartRate'),
     values: pick((r) => r.maxHeartRate),
     polarity: 'lowerIsBetter', showsDelta, deadband: DEADBAND.heartRateBpm,
     format: (v) => `${Math.round(v)} bpm`,
@@ -173,14 +180,14 @@ function metricRows(routes, isCrossType) {
 
 // 配速行：骑行显示 km/h、其余显示 配速（架构方案 §9 裁定 #2）。
 // 混合类型时该行列值按各自单位显示、差值显示 —（单位不同的两个数相减无意义）。
-function paceRow(routes, isCrossType) {
+function paceRow(routes, isCrossType, t) {
   const allUsePace = routes.every(usesPace)
   const allUseSpeed = routes.every((r) => !usesPace(r))
 
   let title
-  if (allUsePace) title = '配速'
-  else if (allUseSpeed) title = '速度'
-  else title = '配速/速度'
+  if (allUsePace) title = t('comparison.rowPace')
+  else if (allUseSpeed) title = t('comparison.rowSpeed')
+  else title = t('comparison.rowPaceSpeed')
 
   const texts = routes.map((route) => {
     const pace = route.avgPace
@@ -191,7 +198,7 @@ function paceRow(routes, isCrossType) {
   const baseline = routes[routes.length - 1]
   const baselinePace = baseline ? baseline.avgPace : null
   if (!(isCrossType === false && baselinePace > 0 && Number.isFinite(baselinePace))) {
-    const cells = texts.map((t) => ({ text: t, deltaText: null, direction: 'none' }))
+    const cells = texts.map((value) => ({ text: value, deltaText: null, direction: 'none' }))
     return { key: 'pace', title, cells, showsDelta: false }
   }
 
@@ -207,7 +214,7 @@ function paceRow(routes, isCrossType) {
       const delta = pace - baselinePace
       return {
         text: texts[index],
-        deltaText: signed(`${Math.round(Math.abs(delta))} 秒`, delta > 0),
+        deltaText: signed(`${Math.round(Math.abs(delta))} ${t('units.sec')}`, delta > 0),
         direction: directionOf(delta, 'lowerIsBetter', DEADBAND.paceSeconds),
       }
     }
@@ -225,13 +232,13 @@ function paceRow(routes, isCrossType) {
 
 // ── 天气行（有数据才出现；跨类型照常显示）──────────────
 
-function weatherRows(routes, weather) {
+function weatherRows(routes, weather, t) {
   const rows = []
 
   const temperatures = routes.map((r) => (weather[r.id] ? weather[r.id].temperature : null))
-  if (temperatures.some((t) => t != null)) {
+  if (temperatures.some((value) => value != null)) {
     rows.push(numericRow({
-      key: 'temperature', title: '温度',
+      key: 'temperature', title: t('comparison.temperature'),
       values: temperatures, polarity: 'neutral', showsDelta: true, deadband: DEADBAND.temperatureCelsius,
       format: (v) => `${Math.round(v)}°C`,
       formatDelta: (d) => signed(`${Math.round(Math.abs(d))}°C`, d > 0),
@@ -239,9 +246,9 @@ function weatherRows(routes, weather) {
   }
 
   const humidities = routes.map((r) => (weather[r.id] ? weather[r.id].humidity : null))
-  if (humidities.some((h) => h != null)) {
+  if (humidities.some((value) => value != null)) {
     rows.push(numericRow({
-      key: 'humidity', title: '湿度',
+      key: 'humidity', title: t('comparison.humidity'),
       values: humidities, polarity: 'neutral', showsDelta: true, deadband: DEADBAND.humidityPercent,
       format: (v) => `${Math.round(v)}%`,
       formatDelta: (d) => signed(`${Math.round(Math.abs(d))}%`, d > 0),
@@ -249,17 +256,17 @@ function weatherRows(routes, weather) {
   }
 
   const conditions = routes.map((r) => (weather[r.id] ? weather[r.id].condition : null))
-  if (conditions.some((c) => c != null)) {
+  if (conditions.some((value) => value != null)) {
     const baseline = conditions[conditions.length - 1]
     const cells = conditions.map((condition, index) => {
-      const text = conditionLabel(condition)
+      const text = conditionLabel(condition, t)
       if (index === conditions.length - 1 || condition == null || baseline == null) {
         return { text, deltaText: null, direction: 'none' }
       }
       const same = condition === baseline
-      return { text, deltaText: same ? '相同' : '不同', direction: 'flat' }
+      return { text, deltaText: same ? t('comparison.same') : t('comparison.different'), direction: 'flat' }
     })
-    rows.push({ key: 'condition', title: '天气', cells, showsDelta: true })
+    rows.push({ key: 'condition', title: t('comparison.weatherTitle'), cells, showsDelta: true })
   }
 
   return rows
@@ -268,7 +275,7 @@ function weatherRows(routes, weather) {
 // ── 归因（F30，禁因果句式）─────────────────────────
 
 // 同期环境差异线索：温度 / 湿度 / 天气现象 / 爬升（均为并列陈述，无因果连接词）。
-function envText(subject, baseline, weather) {
+function envText(subject, baseline, weather, t) {
   const parts = []
   const sw = weather[subject.id]
   const bw = weather[baseline.id]
@@ -276,21 +283,33 @@ function envText(subject, baseline, weather) {
   if (sw && bw && sw.temperature != null && bw.temperature != null) {
     const d = sw.temperature - bw.temperature
     if (Math.abs(d) >= THRESHOLDS.temperatureCelsius) {
-      parts.push(`当日温度${d > 0 ? '高' : '低'} ${Math.round(Math.abs(d))}°C`)
+      parts.push(t('comparison.envTemperature', {
+        dir: t(d > 0 ? 'comparison.dirHigher' : 'comparison.dirLower'),
+        value: Math.round(Math.abs(d)),
+      }))
     }
   }
   if (sw && bw && sw.humidity != null && bw.humidity != null) {
     const d = sw.humidity - bw.humidity
     if (Math.abs(d) >= THRESHOLDS.humidityPercent) {
-      parts.push(`湿度${d > 0 ? '高' : '低'} ${Math.round(Math.abs(d))}%`)
+      parts.push(t('comparison.envHumidity', {
+        dir: t(d > 0 ? 'comparison.dirHigher' : 'comparison.dirLower'),
+        value: Math.round(Math.abs(d)),
+      }))
     }
   }
   if (sw && bw && sw.condition != null && bw.condition != null && sw.condition !== bw.condition) {
-    parts.push(`天气 ${conditionLabel(sw.condition)} / ${conditionLabel(bw.condition)}`)
+    parts.push(t('comparison.envWeather', {
+      subject: conditionLabel(sw.condition, t),
+      baseline: conditionLabel(bw.condition, t),
+    }))
   }
   const ascentDelta = (subject.totalAscent || 0) - (baseline.totalAscent || 0)
   if (Math.abs(ascentDelta) >= THRESHOLDS.ascentMeters) {
-    parts.push(`爬升${ascentDelta > 0 ? '多' : '少'} ${Math.round(Math.abs(ascentDelta))} m`)
+    parts.push(t('comparison.envAscent', {
+      dir: t(ascentDelta > 0 ? 'comparison.dirMore' : 'comparison.dirLess'),
+      value: Math.round(Math.abs(ascentDelta)),
+    }))
   }
 
   return parts.length ? parts.join(' · ') : null
@@ -299,7 +318,7 @@ function envText(subject, baseline, weather) {
 // 归因条目生成：阈值触发（配速/均心率运动内；温度/湿度/天气/爬升作环境线索）。
 // 文案约束（硬性）：只并列差异，禁止因果句式（不出现「因为/导致/因此/所以/使得/造成/由于」）。
 // 跨运动类型时不产出运动内指标归因，只保留环境差异并列。
-export function buildAttributions(routes, weather) {
+export function buildAttributions(routes, weather, t = coreT) {
   if (routes.length < 2) return []
   const baseline = routes[routes.length - 1]
   const isCrossType = new Set(routes.map((r) => r.activityType)).size > 1
@@ -307,8 +326,8 @@ export function buildAttributions(routes, weather) {
   const result = []
 
   for (const subject of routes.slice(0, -1)) {
-    const prefix = needsLabel ? `${columnLabel(subject)} ` : ''
-    const env = envText(subject, baseline, weather)
+    const prefix = needsLabel ? `${columnLabel(subject, t)} ` : ''
+    const env = envText(subject, baseline, weather, t)
     let produced = false
 
     if (!isCrossType) {
@@ -319,9 +338,15 @@ export function buildAttributions(routes, weather) {
         const relative = Math.abs(delta) / basePace
         if (Math.abs(delta) >= THRESHOLDS.paceSeconds || relative >= THRESHOLDS.paceRelative) {
           const text = usesPace(subject)
-            ? `${prefix}配速${delta > 0 ? '慢' : '快'} ${Math.round(Math.abs(delta))} 秒/km`
-            : `${prefix}速度${delta > 0 ? '高' : '低'} ${Math.abs(3600 / pace - 3600 / basePace).toFixed(1)} km/h`
-          result.push({ indicatorKey: 'pace', deltaText: text, envText: env })
+            ? t('comparison.attrPace', {
+              dir: t(delta > 0 ? 'comparison.dirSlower' : 'comparison.dirFaster'),
+              value: Math.round(Math.abs(delta)),
+            })
+            : t('comparison.attrSpeed', {
+              dir: t(delta > 0 ? 'comparison.dirHigher' : 'comparison.dirLower'),
+              value: Math.abs(3600 / pace - 3600 / basePace).toFixed(1),
+            })
+          result.push({ indicatorKey: 'pace', deltaText: prefix ? prefix + text : text, envText: env })
           produced = true
         }
       }
@@ -330,8 +355,11 @@ export function buildAttributions(routes, weather) {
       if (hr != null && baseHR != null) {
         const delta = hr - baseHR
         if (Math.abs(delta) >= THRESHOLDS.heartRateBpm) {
-          const text = `${prefix}均心率${delta > 0 ? '高' : '低'} ${Math.round(Math.abs(delta))} bpm`
-          result.push({ indicatorKey: 'avgHeartRate', deltaText: text, envText: env })
+          const text = t('comparison.attrHeartRate', {
+            dir: t(delta > 0 ? 'comparison.dirHigher' : 'comparison.dirLower'),
+            value: Math.round(Math.abs(delta)),
+          })
+          result.push({ indicatorKey: 'avgHeartRate', deltaText: prefix ? prefix + text : text, envText: env })
           produced = true
         }
       }
@@ -361,14 +389,14 @@ function downsample(points, maxPoints) {
   return result
 }
 
-export function normalizedPace(paceSamples, summary, maxPoints = 200) {
+export function normalizedPace(paceSamples, summary, maxPoints = 200, t = coreT, lang = 'zh-CN') {
   if (!paceSamples || paceSamples.length < 2) return []
   const distances = paceSamples.map((p) => p[1])
   const seriesEnd = Math.max(...distances)
   const total = Math.max(seriesEnd, summary.distance || 0)
   if (total <= 0) return []
 
-  const label = columnLabel(summary)
+  const label = columnLabel(summary, t, lang)
   const sampled = downsample(paceSamples, maxPoints)
   return sampled
     .filter((p) => Number.isFinite(p[2]) && p[2] > 0)
@@ -382,14 +410,14 @@ export function normalizedPace(paceSamples, summary, maxPoints = 200) {
 
 // 组装对比表：routes 应按 order() 排好序（≤3 条，最新在最左，末列为基准）；
 // weather 为 workoutId → WorkoutWeather（缺失即视为无天气，整行/整区隐藏）。
-export function build(routes, weather) {
+export function build(routes, weather, t = coreT) {
   if (!routes || routes.length < 2) {
     return { rows: [], weatherRows: [], attributions: [] }
   }
   const isCrossType = new Set(routes.map((r) => r.activityType)).size > 1
   return {
-    rows: metricRows(routes, isCrossType),
-    weatherRows: weatherRows(routes, weather),
-    attributions: buildAttributions(routes, weather),
+    rows: metricRows(routes, isCrossType, t),
+    weatherRows: weatherRows(routes, weather, t),
+    attributions: buildAttributions(routes, weather, t),
   }
 }

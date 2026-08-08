@@ -1,10 +1,16 @@
+/**
+ * 运动类型常量（i18n 改造后：label → labelKey，展示文案由词典翻译）。
+ *
+ * - `labelKey` 为 i18n 键（activity.*），组件层用 `t(ACTIVITY[key].labelKey)` 取文案。
+ * - `color` 保留（地图/列表着色）。
+ */
 export const ACTIVITY = {
-  all: { label: '全部', color: '#2f8cff' },
-  run: { label: '跑步', color: '#ff6756' },
-  ride: { label: '骑车', color: '#37d5dc' },
-  walk: { label: '步行', color: '#c9ee58' },
-  hike: { label: '徒步', color: '#f5a23b' },
-  other: { label: '其他', color: '#b18cff' },
+  all: { labelKey: 'activity.all', color: '#2f8cff' },
+  run: { labelKey: 'activity.run', color: '#ff6756' },
+  ride: { labelKey: 'activity.ride', color: '#37d5dc' },
+  walk: { labelKey: 'activity.walk', color: '#c9ee58' },
+  hike: { labelKey: 'activity.hike', color: '#f5a23b' },
+  other: { labelKey: 'activity.other', color: '#b18cff' },
 }
 
 export const ACTIVITY_ORDER = ['all', 'run', 'ride', 'walk', 'hike']

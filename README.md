@@ -138,8 +138,9 @@ VITE_TILE_MAX_ZOOM=20
 | `npm run dev` | 启动仅监听 `127.0.0.1` 的开发服务器 |
 | `npm run test` | 运行查看器 JavaScript 测试 |
 | `npm run typecheck` | 执行 TypeScript/JSX 静态检查 |
+| `npm run check:i18n` | 校验双语词典键完整性（en 100% 覆盖 zh-Hans） |
 | `npm run privacy-check` | 检查 Git 跟踪文件和构建产物是否含敏感轨迹 |
-| `npm run check` | 依次运行测试、静态检查、安全构建和隐私检查 |
+| `npm run check` | 依次运行 i18n 键检查、测试、静态检查、安全构建和隐私检查 |
 | `npm run build` | 安全生产构建，默认不复制 `public/` 私人数据 |
 | `npm run build:private` | 将本机路线复制进 `dist`，仅供本人离线使用 |
 | `npm run preview` | 预览最近一次生产构建 |
@@ -164,10 +165,20 @@ npm run preview
 - 指标曲线最多保留 600 个均匀抽样点用于展示；摘要统计基于抽样前数据。
 - 缺失或无法识别的数据保留为空，不填充为 0。
 
+## 语言（i18n）
+
+- **技术栈**：`i18next` + `react-i18next`（组件层 `useTranslation()`；纯逻辑层 `src/trend.js` / `src/comparison.js` 复用 i18next core 的 `t`，不引入 React）。
+- **词典**：`src/i18n/locales/zh-Hans.js`（源语言）与 `en.js`（保底完整性，键集合必须与 zh-Hans 完全一致，`npm run check:i18n` 自动校验）。
+- **语言策略**：**仅跟随浏览器语言**（`navigator.languages`），不做应用内切换、不写 localStorage；`zh*` → 简体中文，`en*` → 英文，无法识别时**默认回退 en**（与 iOS `sourceLanguage=en` 对齐）。`document.documentElement.lang` 由 JS 运行时设置，`index.html` 静态兜底为 `lang="en"`。
+- **语义分离**：纯逻辑函数（如 `formatDeltaText` / `periodTitle` / `buildDeltas`）的可选 `t` 参数默认值为 zh-Hans（源语言），保证 `node --test` 中文断言稳定；UI 组件显式传 `useTranslation()` 的 `t`，与 UI 运行时语言一致。
+- 后端（iOS `/api/summary` 等）返回的中文错误 message **永不直接展示**：`routeRepository.js` 抛错误码（`ROUTES_NOT_FOUND` / `METRICS_NOT_FOUND` / `TRACK_NOT_FOUND` / `SUMMARY_LOAD_FAILED`），UI 统一映射 `errors.*` 本地化文案；后端 message 仅 `console.warn` 供调试。
+
 ## 项目结构
 
 ```text
 src/                         React + Leaflet 前端
+src/i18n/                    i18n 实例与双语词典（core.js / index.js / locales/）
+scripts/check_i18n_keys.mjs  i18n 键完整性检查
 scripts/check_privacy.py        开源隐私检查
 tests/                       JavaScript 测试
 public/data/README.md        本地路线与指标数据目录说明

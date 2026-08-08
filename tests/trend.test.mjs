@@ -19,6 +19,12 @@ import {
   toPath,
   usesPace,
 } from '../src/trend.js'
+import { i18n } from '../src/i18n/core.js'
+
+/** 构造绑定指定语言的 t（UI 语言语义；纯逻辑默认 t 恒为 zh-Hans 源语言） */
+function tFor(lang) {
+  return (key, options) => i18n.t(key, { ...(options || {}), lng: lang })
+}
 
 /** 造一个 /api/summary 形状的桶（字段名与 iOS PeriodBucket 的 camelCase 一致） */
 function bucket(key, overrides = {}) {
@@ -298,4 +304,29 @@ test('isEmptySummary：无桶、或全部 count=0（补零桶）都算空', () =
   assert.equal(isEmptySummary(null), true)
   assert.equal(isEmptySummary([bucket('a', { count: 0 }), bucket('b', { count: 0 })]), true)
   assert.equal(isEmptySummary([bucket('a', { count: 0 }), bucket('b', { count: 1 })]), false)
+})
+
+// ── en 文案抽查（显式传 en t；默认 t 恒为 zh-Hans，见上）──
+
+test('en 文案：formatDeltaText / periodTitle / comparisonLabel / shortLabel', () => {
+  const enT = tFor('en')
+  assert.equal(formatDeltaText(0, enT), 'Flat')
+  assert.equal(formatDeltaText(20, enT), '+20.0%')
+  assert.equal(periodTitle('2026-W31', 'week', enT, 'en-US'), 'Week 31, 2026')
+  assert.equal(periodTitle('2026-08', 'month', enT, 'en-US'), 'August 2026')
+  assert.equal(periodTitle('2026', 'year', enT, 'en-US'), '2026')
+  assert.equal(comparisonLabel('week', enT), 'vs last week')
+  assert.equal(comparisonLabel('month', enT), 'vs last month')
+  assert.equal(comparisonLabel('year', enT), 'vs last year')
+  assert.equal(shortLabel('2026-08', 'month', enT), '8')
+  assert.equal(shortLabel('2026-W31', 'week', enT), 'W31')
+})
+
+test('en 文案：buildDeltas 四项标题', () => {
+  const enT = tFor('en')
+  const previous = bucket('2026-07', { distance: 10000, duration: 3000, count: 2, ascent: 100 })
+  const current = bucket('2026-08', { distance: 15000, duration: 2400, count: 2, ascent: 0 })
+  const deltas = buildDeltas(current, previous, enT)
+  assert.deepEqual(deltas.map((d) => d.title), ['Distance', 'Duration', 'Count', 'Ascent'])
+  assert.equal(deltas[0].percent, 50)
 })

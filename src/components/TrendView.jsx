@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { ACTIVITY, ACTIVITY_ORDER } from '../constants'
 import { formatDuration, formatPaceSeconds, formatSpeedKmh } from '../format'
@@ -31,6 +32,7 @@ const DIRECTION_ICON = {
 
 /** 柱状图 / 折线图共用的坐标轴标签（每隔 step 个画一个，避免挤成一团） */
 function AxisLabels({ buckets, granularity }) {
+  const { t } = useTranslation()
   const { width, padX, height } = CHART
   if (!buckets.length) return null
   const slot = (width - padX * 2) / buckets.length
@@ -47,7 +49,7 @@ function AxisLabels({ buckets, granularity }) {
             y={height - 8}
             textAnchor="middle"
           >
-            {shortLabel(bucket.key, granularity)}
+            {shortLabel(bucket.key, granularity, t)}
           </text>
         )
       })}
@@ -61,6 +63,8 @@ function AxisLabels({ buckets, granularity }) {
  * 数据全部来自 `/api/summary`，本组件**不做聚合**（见 `src/trend.js` 顶部说明）。
  */
 export default function TrendView() {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.resolvedLanguage || i18n.language || 'en'
   const [granularity, setGranularity] = useState('month')
   const [category, setCategory] = useState('all')
   const [state, setState] = useState({ status: 'loading', summary: null, error: '' })
@@ -83,7 +87,7 @@ export default function TrendView() {
 
   const buckets = state.summary?.buckets || []
   const { current, previous } = useMemo(() => pickPeriods(buckets), [buckets])
-  const deltas = useMemo(() => buildDeltas(current, previous), [current, previous])
+  const deltas = useMemo(() => buildDeltas(current, previous, t), [current, previous, t])
   const chartBuckets = useMemo(() => pickChartBuckets(buckets, granularity), [buckets, granularity])
 
   const showPace = usesPace(category)
@@ -104,12 +108,13 @@ export default function TrendView() {
 
   const activityColor = ACTIVITY[category].color
   const empty = isEmptySummary(buckets)
+  const granularityLabelKey = GRANULARITIES.find((item) => item.key === granularity)?.labelKey || 'trend.granularityMonth'
 
   return (
     <section className="trend-view" style={{ '--activity-color': activityColor }}>
       <header className="trend-toolbar">
-        <div className="activity-tabs trend-granularity" aria-label="统计粒度">
-          {GRANULARITIES.map(({ key, label }) => (
+        <div className="activity-tabs trend-granularity" aria-label={t('trend.granularityAria')}>
+          {GRANULARITIES.map(({ key, labelKey }) => (
             <button
               key={key}
               type="button"
@@ -118,11 +123,11 @@ export default function TrendView() {
               onClick={() => setGranularity(key)}
               style={{ '--activity-color': activityColor }}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
-        <div className="activity-tabs" aria-label="运动类型筛选">
+        <div className="activity-tabs" aria-label={t('sidebar.activityFilterAria')}>
           {ACTIVITY_ORDER.map((key) => (
             <button
               key={key}
@@ -132,54 +137,58 @@ export default function TrendView() {
               onClick={() => setCategory(key)}
               style={{ '--activity-color': ACTIVITY[key].color }}
             >
-              {ACTIVITY[key].label}
+              {t(ACTIVITY[key].labelKey)}
             </button>
           ))}
         </div>
       </header>
 
-      {state.status === 'loading' && <p className="trend-empty">正在统计…</p>}
-      {state.status === 'error' && <p className="trend-empty">{state.error}</p>}
+      {state.status === 'loading' && <p className="trend-empty">{t('trend.loading')}</p>}
+      {state.status === 'error' && (
+        <p className="trend-empty">
+          {state.error === 'SUMMARY_LOAD_FAILED' ? t('errors.summaryLoadFailed') : state.error}
+        </p>
+      )}
 
       {state.status === 'ready' && empty && (
         <p className="trend-empty">
-          还没有可统计的运动记录。
+          {t('trend.noDataTitle')}
           <br />
-          在 iPhone 上完成一次同步后，这里会显示周期趋势。
+          {t('trend.noDataHint')}
         </p>
       )}
 
       {state.status === 'ready' && !empty && current && (
         <>
           <div className="comparison-card trend-card">
-            <p className="comparison-card-title">{periodTitle(current.key, granularity)}</p>
+            <p className="comparison-card-title">{periodTitle(current.key, granularity, t, lang)}</p>
             <div className="trend-grid">
               <div className="trend-metric">
-                <span className="trend-metric-label">总距离</span>
+                <span className="trend-metric-label">{t('trend.totalDistance')}</span>
                 <strong>{(current.distance / 1000).toFixed(1)}<small>km</small></strong>
               </div>
               <div className="trend-metric">
-                <span className="trend-metric-label">总时长</span>
+                <span className="trend-metric-label">{t('trend.totalDuration')}</span>
                 <strong>{formatDuration(current.duration / 60)}</strong>
               </div>
               <div className="trend-metric">
-                <span className="trend-metric-label">次数</span>
-                <strong>{current.count}<small>次</small></strong>
+                <span className="trend-metric-label">{t('trend.totalCount')}</span>
+                <strong>{current.count}<small>{t('units.count')}</small></strong>
               </div>
               <div className="trend-metric">
-                <span className="trend-metric-label">总爬升</span>
+                <span className="trend-metric-label">{t('trend.totalAscent')}</span>
                 <strong>{Math.round(current.ascent)}<small>m</small></strong>
               </div>
             </div>
             <div className="trend-delta-row">
-              <span className="comparison-label">{comparisonLabel(granularity)}</span>
+              <span className="comparison-label">{comparisonLabel(granularity, t)}</span>
               {deltas.map(({ title, percent }) => {
                 const direction = deltaDirection(percent)
                 const Icon = DIRECTION_ICON[direction]
                 return (
                   <span key={title} className={`trend-delta trend-delta-${direction}`}>
                     <Icon size={12} aria-hidden="true" />
-                    {title} {formatDeltaText(percent)}
+                    {title} {formatDeltaText(percent, t)}
                   </span>
                 )
               })}
@@ -187,7 +196,7 @@ export default function TrendView() {
           </div>
 
           <div className="comparison-card trend-card">
-            <p className="comparison-card-title">距离趋势</p>
+            <p className="comparison-card-title">{t('trend.distanceTrend')}</p>
             <div className="trend-chart">
               <svg viewBox={`0 0 ${CHART.width} ${CHART.height}`} preserveAspectRatio="none" aria-hidden="true">
                 <line
@@ -206,17 +215,17 @@ export default function TrendView() {
                     width={bar.width}
                     height={bar.height}
                   >
-                    <title>{`${periodTitle(bar.key, granularity)} · ${(bar.value / 1000).toFixed(1)} km`}</title>
+                    <title>{`${periodTitle(bar.key, granularity, t, lang)} · ${(bar.value / 1000).toFixed(1)} km`}</title>
                   </rect>
                 ))}
                 <AxisLabels buckets={chartBuckets} granularity={granularity} />
               </svg>
             </div>
-            <p className="comparison-card-sub">峰值 {(maxDistance / 1000).toFixed(1)} km</p>
+            <p className="comparison-card-sub">{t('trend.peakDistance', { value: (maxDistance / 1000).toFixed(1) })}</p>
           </div>
 
           <div className="comparison-card trend-card">
-            <p className="comparison-card-title">{showPace ? '平均配速趋势' : '平均速度趋势'}</p>
+            <p className="comparison-card-title">{showPace ? t('trend.avgPaceTrend') : t('trend.avgSpeedTrend')}</p>
             {line.segments.length ? (
               <>
                 <div className="trend-chart">
@@ -239,7 +248,7 @@ export default function TrendView() {
                     {line.points.map((point) => (
                       <circle key={point.key} className="trend-point" cx={point.x} cy={point.y} r="3">
                         <title>
-                          {`${periodTitle(point.key, granularity)} · ${
+                          {`${periodTitle(point.key, granularity, t, lang)} · ${
                             showPace ? `${formatPaceSeconds(point.value)}/km` : `${point.value.toFixed(1)} km/h`
                           }`}
                         </title>
@@ -250,13 +259,19 @@ export default function TrendView() {
                 </div>
                 <p className="comparison-card-sub">
                   {showPace
-                    ? `本${GRANULARITIES.find((item) => item.key === granularity)?.label}平均 ${formatPaceSeconds(current.avgPace)}/km`
-                    : `本${GRANULARITIES.find((item) => item.key === granularity)?.label}平均 ${formatSpeedKmh(current.avgPace)} km/h`}
-                  ；无记录周期已断开，不按 0 计
+                    ? t('trend.periodAvgPace', {
+                      period: t(granularityLabelKey),
+                      value: formatPaceSeconds(current.avgPace),
+                    })
+                    : t('trend.periodAvgSpeed', {
+                      period: t(granularityLabelKey),
+                      value: formatSpeedKmh(current.avgPace),
+                    })}
+                  {t('trend.lineBreakNote')}
                 </p>
               </>
             ) : (
-              <p className="comparison-empty">所选周期暂无配速数据</p>
+              <p className="comparison-empty">{t('trend.noPaceData')}</p>
             )}
           </div>
         </>

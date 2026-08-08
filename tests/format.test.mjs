@@ -1,7 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { formatDuration, formatPaceSeconds, formatSpeedKmh } from '../src/format.js'
+import { formatDate, formatDuration, formatPaceSeconds, formatSpeedKmh } from '../src/format.js'
+
+test('formatDate 本地化：默认 zh-CN，en 用 en-US（lang 参数化不破坏旧签名）', () => {
+  assert.equal(formatDate('2026-08-07T07:12:03Z'), '2026年8月7日')
+  assert.equal(formatDate('2026-08-07T07:12:03Z', 'zh-CN'), '2026年8月7日')
+  assert.equal(formatDate('2026-08-07T07:12:03Z', 'en'), 'August 7, 2026')
+  assert.equal(formatDate('2026-08-07T07:12:03Z', 'en-US'), 'August 7, 2026')
+})
 
 test('formatDuration formats durations below and above one hour', () => {
   assert.equal(formatDuration(45.7), '45:42')

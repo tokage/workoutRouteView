@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import MapCanvas from './components/MapCanvas'
 import MetricPanel from './components/MetricPanel'
 import RouteDetails from './components/RouteDetails'
@@ -7,8 +8,18 @@ import ComparisonPanel from './components/ComparisonPanel'
 import ViewSwitch from './components/ViewSwitch'
 import TrendView from './components/TrendView'
 import { apiRouteRepository } from './routeRepository'
+import zhHans from './i18n/locales/zh-Hans.js'
+
+// routeRepository 错误码 → 本地化键（后端中文 message 永不直接展示，方案 §5.3）
+const ERROR_CODE_TO_KEY = {
+  ROUTES_NOT_FOUND: 'errors.routesNotFound',
+  METRICS_NOT_FOUND: 'errors.metricsNotFound',
+  TRACK_NOT_FOUND: 'errors.trackNotFound',
+  SUMMARY_LOAD_FAILED: 'errors.summaryLoadFailed',
+}
 
 export default function App() {
+  const { t } = useTranslation()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [category, setCategory] = useState('all')
@@ -45,14 +56,21 @@ export default function App() {
 
   const routes = useMemo(() => {
     if (!data) return []
-    const query = search.trim().toLowerCase()
+    const query = search.trim().toLowerCase().replace(/\s+/g, '')
+    // source 为稳定标识 'appleHealth'：搜索需同时匹配 zh/en 两语言（方案 §1.4 / §5.2）
+    const zhSourceLabel = zhHans['common.appleHealth']
+    const currentSourceLabel = t('common.appleHealth')
     return data.routes.filter((route) => {
       const categoryMatch = category === 'all' || route.category === category
       const yearMatch = year === 'all' || String(route.year) === String(year)
-      const searchMatch = !query || `${route.date} ${route.source}`.toLowerCase().includes(query)
+      const searchMatch = !query || [route.date, route.source, zhSourceLabel, currentSourceLabel]
+        .join(' ')
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .includes(query)
       return categoryMatch && yearMatch && searchMatch
     })
-  }, [data, category, year, search])
+  }, [data, category, year, search, t])
 
   useEffect(() => {
     if (routes.length && !routes.some((route) => route.id === selectedId)) {
@@ -202,14 +220,15 @@ export default function App() {
   // ── render ──────────────────────────────────────────────
 
   if (error) {
+    const message = ERROR_CODE_TO_KEY[error] ? t(ERROR_CODE_TO_KEY[error]) : error
     return (
       <main className="state-screen">
-        <h1>路线数据还没准备好</h1>
-        <p>{error}。请确认 iPhone 上的 TraceLens 服务已启动。</p>
+        <h1>{t('app.errorTitle')}</h1>
+        <p>{t('app.errorBody', { error: message })}</p>
       </main>
     )
   }
-  if (!data || !visibleIds) return <main className="state-screen"><p>正在载入运动路线…</p></main>
+  if (!data || !visibleIds) return <main className="state-screen"><p>{t('app.loading')}</p></main>
 
   return (
     <main className="app-shell">

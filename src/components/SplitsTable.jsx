@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { formatSplitPace, splitPaceMark } from '../splits'
 
 /**
@@ -10,21 +11,22 @@ import { formatSplitPace, splitPaceMark } from '../splits'
  * - 骑行显示 km/h，其余显示 秒/km
  */
 function SplitsTable({ splits, avgPace, isCycling }) {
+  const { t } = useTranslation()
   if (!splits?.length) {
     return (
       <section className="splits-panel">
         <div className="metric-chart-heading">
-          <strong>每公里分段</strong>
+          <strong>{t('splitsTable.title')}</strong>
         </div>
-        <p className="splits-empty">暂无分段数据</p>
+        <p className="splits-empty">{t('splitsTable.empty')}</p>
       </section>
     )
   }
   return (
     <section className="splits-panel">
       <div className="metric-chart-heading">
-        <strong>每公里分段</strong>
-        <span>快慢基准：本次均配速</span>
+        <strong>{t('splitsTable.title')}</strong>
+        <span>{t('splitsTable.baseline')}</span>
       </div>
       <div className="splits-table">
         {splits.map((split) => {
@@ -32,7 +34,7 @@ function SplitsTable({ splits, avgPace, isCycling }) {
           return (
             <div className="splits-row" key={split.index}>
               <span className="splits-km">
-                {split.isPartial ? '尾段' : `${split.index} km`}
+                {split.isPartial ? t('splitsTable.partial') : `${split.index} km`}
                 {split.isPartial && Number.isFinite(split.distance)
                   ? <small>{(split.distance / 1000).toFixed(2)} km</small>
                   : null}
@@ -49,7 +51,7 @@ function SplitsTable({ splits, avgPace, isCycling }) {
                   : '—'}
               </span>
               <span className={`splits-mark ${mark || 'none'}`}>
-                {mark === 'fast' ? '快' : mark === 'slow' ? '慢' : '—'}
+                {mark === 'fast' ? t('splitsTable.fast') : mark === 'slow' ? t('splitsTable.slow') : '—'}
               </span>
             </div>
           )

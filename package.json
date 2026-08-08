@@ -18,16 +18,19 @@
     "test:js": "node --test",
     "typecheck": "tsc --noEmit",
     "privacy-check": "python3 scripts/check_privacy.py",
-    "check": "npm run test && npm run typecheck && npm run build && npm run privacy-check"
+    "check:i18n": "node scripts/check_i18n_keys.mjs",
+    "check": "node scripts/check_i18n_keys.mjs && npm run test && npm run typecheck && npm run build && npm run privacy-check"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "i18next": "26.3.6",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-i18next": "17.0.9"
   },
   "devDependencies": {
     "@types/react": "^18.3.31",

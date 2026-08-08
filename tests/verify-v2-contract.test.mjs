@@ -81,6 +81,7 @@ test('① listRoutes 适配信封：不内嵌 coordinates、bounds 读 bbox、�
   assert.equal(routes[0].endDate, '2026-08-04T07:56:23Z')
   assert.equal(routes[0].hasRoute, true)
   assert.equal(routes[0].category, 'run')
+  assert.equal(routes[0].source, 'appleHealth', 'source 为稳定标识（展示/搜索时翻译）')
   assert.equal(routes[1].hasRoute, false, 'hasRoute=false 兜底')
   assert.deepEqual(routes[1].bounds, [[0, 0], [0, 0]], '无 bbox 退化为 [[0,0],[0,0]]')
 })
@@ -111,4 +112,34 @@ test('③ getRouteTrack：按需拉轨迹供地图渲染，空 id 不崩', async
   assert.equal(track[0][0], 30.11)
   const empty = await apiRouteRepository.getRouteTrack(null)
   assert.equal(empty.length, 0)
+})
+
+test('④ 错误路径：!resp.ok 抛错误码（不携带后端中文 message），source 稳定标识', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () => ({ ok: false, json: async () => ({ error: 'x', message: '中文错误' }) })
+  try {
+    await assert.rejects(apiRouteRepository.listRoutes(), /ROUTES_NOT_FOUND/)
+    await assert.rejects(apiRouteRepository.getRouteMetrics({ id: 'A1' }), /METRICS_NOT_FOUND/)
+    await assert.rejects(apiRouteRepository.getRouteTrack('A1'), /TRACK_NOT_FOUND/)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('⑤ getSummary 错误：后端中文 message 仅 console.warn，抛 SUMMARY_LOAD_FAILED 错误码', async () => {
+  const original = globalThis.fetch
+  const originalWarn = console.warn
+  const warns = []
+  console.warn = (...args) => warns.push(args.join(' '))
+  globalThis.fetch = async () => ({
+    ok: false,
+    json: async () => ({ error: 'bad_granularity', message: 'granularity 必须是 week / month / year 之一' }),
+  })
+  try {
+    await assert.rejects(apiRouteRepository.getSummary({ granularity: 'bad' }), /SUMMARY_LOAD_FAILED/)
+    assert.ok(warns.some((w) => w.includes('granularity')), '后端 message 只进 console.warn 供调试')
+  } finally {
+    globalThis.fetch = original
+    console.warn = originalWarn
+  }
 })

@@ -129,6 +129,18 @@ export default {
   'trend.deltaDuration': '时长',
   'trend.deltaCount': '次数',
   'trend.deltaAscent': '爬升',
+  'trend.cardioTitle': '有氧适能',
+  'trend.cardioSubtitle': '由 Apple Watch 周期记录',
+  'trend.cardioWindowWeek': '近 12 周',
+  'trend.cardioWindowMonth': '近 12 个月',
+  'trend.cardioWindowYear': '近 8 年',
+  'trend.cardioVsWeek': '较前 12 周',
+  'trend.cardioVsMonth': '较前 12 个月',
+  'trend.cardioVsYear': '较前 8 年',
+  'trend.cardioNoData': '暂无有氧适能数据',
+  'trend.cardioNoDataHint': '需 Apple Watch 记录有氧适能',
+  'trend.cardioNoRangeData': '该时间范围内无有氧适能数据',
+  'trend.cardioLoading': '正在读取有氧适能…',
 
   // ── 对比（ComparisonPanel.jsx + comparison.js）─────────
   'comparison.panelAria': '指标对比面板',
@@ -184,6 +196,7 @@ export default {
   'errors.metricsNotFound': '未找到路线指标数据',
   'errors.trackNotFound': '未找到轨迹数据',
   'errors.summaryLoadFailed': '趋势数据加载失败',
+  'errors.cardioLoadFailed': '有氧适能数据加载失败',
 
   // ── 通用 ─────────────────────────────────────────────
   'common.appleHealth': 'Apple 健康',

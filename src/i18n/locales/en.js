@@ -129,6 +129,18 @@ export default {
   'trend.deltaDuration': 'Duration',
   'trend.deltaCount': 'Count',
   'trend.deltaAscent': 'Ascent',
+  'trend.cardioTitle': 'Cardio Fitness',
+  'trend.cardioSubtitle': 'Recorded periodically by Apple Watch',
+  'trend.cardioWindowWeek': 'Last 12 Weeks',
+  'trend.cardioWindowMonth': 'Last 12 Months',
+  'trend.cardioWindowYear': 'Last 8 Years',
+  'trend.cardioVsWeek': 'vs Previous 12 Weeks',
+  'trend.cardioVsMonth': 'vs Previous 12 Months',
+  'trend.cardioVsYear': 'vs Previous 8 Years',
+  'trend.cardioNoData': 'No cardio fitness data',
+  'trend.cardioNoDataHint': 'Requires an Apple Watch to record cardio fitness',
+  'trend.cardioNoRangeData': 'No cardio fitness data in this range',
+  'trend.cardioLoading': 'Loading cardio fitness…',
 
   // ── Comparison (ComparisonPanel.jsx + comparison.js) ───
   'comparison.panelAria': 'Metrics comparison panel',
@@ -184,6 +196,7 @@ export default {
   'errors.metricsNotFound': 'Route metrics data not found',
   'errors.trackNotFound': 'Track data not found',
   'errors.summaryLoadFailed': 'Failed to load trend data',
+  'errors.cardioLoadFailed': 'Failed to load cardio fitness data',
 
   // ── Common ─────────────────────────────────────────────
   'common.appleHealth': 'Apple Health',

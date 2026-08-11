@@ -20,7 +20,7 @@
  * （测试跑不了 .jsx，所以纯逻辑必须留在 .js 里——与 comparison.js 的组织方式一致）。
  */
 import { t as coreT } from './i18n/core.js'
-import { monthName as localizedMonthName } from './i18n/format.js'
+import { langToIntl, monthName as localizedMonthName } from './i18n/format.js'
 
 /** 粒度分段控件选项，顺序与 iOS `TrendView` 一致（周/月/年）；label 为 i18n 键 */
 export const GRANULARITIES = [
@@ -325,4 +325,174 @@ export function buildDeltas(current, previous, t = coreT) {
 export function isEmptySummary(buckets) {
   if (!Array.isArray(buckets) || !buckets.length) return true
   return buckets.every((bucket) => !Number(bucket.count))
+}
+
+// ── 有氧适能（VO₂max）折线几何与展示辅助（T07）────────────
+//
+// ⚠️ 只做**渲染几何**，**不做任何聚合**：窗口截取 / windowAvg / delta / 死区 / direction
+//    全部由原生 `CardioFitnessSummary.build` 算完经 `/api/cardio` 下发（架构硬规则）。
+//    但 Y 轴留白口径（`cardioDomain`）属于渲染几何，逐行复刻 iOS `yDomain`，不违反该规则。
+
+/**
+ * 折线图几何——**连续时间轴**版本（VO₂max 专用）。
+ *
+ * 与 `buildLineSegments` 的分工（别合并这两个函数）：
+ * - `buildLineSegments` 的 X 是**桶序号**（等距分类轴）。周期桶天然等距、后端已补零，等距是对的。
+ * - VO₂max 由 Apple Watch 按自身节奏写入，**间隔从几天到几周不等**。按序号等距画，会把
+ *   「三年前的 2 个点」和「上周的 2 个点」拉成同样疏密，完全失真。故 X 按**真实时间比例**映射，
+ *   与 iOS `CardioFitnessCard` 的 `x: .value("Date", sample.date)` 连续 Date 轴同口径。
+ *
+ * @param {Array<{date: string, value: number}>} samples ISO 8601，后端保证升序（此处仍防御排序）
+ * @param {(sample: object) => (number|null)} [valueOf]
+ */
+export function buildDateLineSegments(samples, valueOf = (sample) => sample.value) {
+  const { width, height, padTop, padBottom, padX } = CHART
+  const empty = { segments: [], points: [], min: null, max: null, domain: null, tMin: null, tMax: null }
+  if (!Array.isArray(samples) || !samples.length) return empty
+
+  // 时间戳不可解析的样本**整条丢弃**，而不是当断点。
+  // 断点的语义是「这个时刻没有值」——它在 X 轴上仍有确定位置；
+  // 而时间本身无效的样本在时间轴上**根本没有位置**，留着只会算出 NaN 坐标污染整张图。
+  const parsed = samples
+    .map((sample) => ({
+      key: sample && typeof sample.date === 'string' ? sample.date : '',
+      t: Date.parse(sample && sample.date),
+      raw: sample,
+    }))
+    .filter((item) => Number.isFinite(item.t))
+    .sort((a, b) => a.t - b.t)
+  if (!parsed.length) return empty
+
+  const tMin = parsed[0].t
+  const tMax = parsed[parsed.length - 1].t
+  const tSpan = tMax - tMin
+  const plotWidth = width - padX * 2
+  // 单样本 / 所有样本同一时刻 → tSpan = 0，居中画，避免除零产出 NaN（R14）
+  const xFor = (t) => (tSpan <= 0 ? padX + plotWidth / 2 : padX + ((t - tMin) / tSpan) * plotWidth)
+
+  const rows = parsed.map((item) => {
+    const value = Number(valueOf(item.raw))
+    // 与 buildLineSegments 同口径：null / 0 / NaN / Infinity → 断点
+    return {
+      key: item.key,
+      t: item.t,
+      x: xFor(item.t),
+      value: Number.isFinite(value) && value > 0 ? value : null,
+    }
+  })
+
+  const values = rows.filter((row) => row.value !== null).map((row) => row.value)
+  if (!values.length) return empty
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const domain = cardioDomain(min, max)
+  const plotHeight = height - padTop - padBottom
+  const span = domain.hi - domain.lo
+  const yFor = (value) => (span <= 0
+    ? padTop + plotHeight / 2
+    : padTop + plotHeight - ((value - domain.lo) / span) * plotHeight)
+
+  const segments = []
+  let current = []
+  rows.forEach((row) => {
+    if (row.value === null) {
+      if (current.length) segments.push(current)
+      current = []
+      return
+    }
+    current.push({ key: row.key, t: row.t, x: row.x, y: yFor(row.value), value: row.value })
+  })
+  if (current.length) segments.push(current)
+
+  return { segments, points: segments.flat(), min, max, domain, tMin, tMax }
+}
+
+/**
+ * Y 域——**逐行复刻** iOS `CardioFitnessCard.yDomain`。
+ *
+ * 为什么不像 `buildLineSegments` 那样直接用 min..max 贴满：VO₂max 实际区间仅 30–60，
+ * 贴满会把 ±0.5 的噪声画成满屏起伏，同一份数据两端观感差一个量级。
+ * 规则：`hi − lo < 1` → `lo−1 .. hi+1`（单点 / 全等值防退化）；否则上下各留 15%。
+ */
+export function cardioDomain(lo, hi) {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return { lo: 0, hi: 1 }
+  if (hi - lo < 1) return { lo: lo - 1, hi: hi + 1 }
+  const pad = (hi - lo) * 0.15
+  return { lo: lo - pad, hi: hi + pad }
+}
+
+/**
+ * 时间轴刻度：按**时间**等分，不按样本序号。
+ * 与 iOS `AxisMarks(values: .automatic(desiredCount: 4))` 同口径。
+ * 样本序号等分会在稀疏区堆标签、密集区没标签（R15）。
+ */
+export function buildDateAxisTicks(tMin, tMax, count = 4) {
+  const { width, padX } = CHART
+  if (!Number.isFinite(tMin) || !Number.isFinite(tMax)) return []
+  const plotWidth = width - padX * 2
+  if (tMax - tMin <= 0) return [{ t: tMin, x: padX + plotWidth / 2 }]
+  const steps = Math.max(2, Math.min(6, Math.floor(count)))
+  return Array.from({ length: steps }, (_, index) => {
+    const ratio = index / (steps - 1)
+    return { t: tMin + (tMax - tMin) * ratio, x: padX + plotWidth * ratio }
+  })
+}
+
+/** 「52.3」；无数据「—」。与 iOS `latestValueText` 同口径（1 位小数） */
+export function formatCardioValue(value) {
+  if (value == null) return '—'
+  const number = Number(value)
+  return Number.isFinite(number) ? number.toFixed(1) : '—'
+}
+
+/**
+ * 「↑1.2」/「↓0.8」/「持平」/「—」。与 iOS `CardioFitnessSummary.deltaText` 同口径。
+ *
+ * ★ **方向一律取原生下发的 `direction`，本函数绝不自己判正负**——
+ *   死区 0.5 的判定在 Swift 里，Web 复判一遍两端迟早漂开。
+ *   delta 缺失（null / undefined）即便 direction=up/down 也兜底「—」，与 iOS `deltaText` 一致。
+ */
+export function formatCardioDelta(delta, direction, t = coreT) {
+  if (direction === 'flat') return t('trend.flat')
+  if (direction !== 'up' && direction !== 'down') return '—'
+  if (delta == null) return '—'
+  const number = Number(delta)
+  if (!Number.isFinite(number)) return '—'
+  return `${number > 0 ? '↑' : '↓'}${Math.abs(number).toFixed(1)}`
+}
+
+/** direction → 既有 `.trend-delta-*` 配色类后缀（up=青 / down=橙 / flat·none=灰，同 iOS tint） */
+export function cardioDirectionClass(direction) {
+  return direction === 'up' || direction === 'down' || direction === 'flat' ? direction : 'none'
+}
+
+/** 窗口标题 / 环比前缀的 i18n 键（**不用后端 windowTitle**，它是设备语言） */
+export function cardioWindowTitleKey(granularity) {
+  if (granularity === 'week') return 'trend.cardioWindowWeek'
+  if (granularity === 'year') return 'trend.cardioWindowYear'
+  return 'trend.cardioWindowMonth'
+}
+
+export function cardioComparisonKey(granularity) {
+  if (granularity === 'week') return 'trend.cardioVsWeek'
+  if (granularity === 'year') return 'trend.cardioVsYear'
+  return 'trend.cardioVsMonth'
+}
+
+/** 大号值下方的日期。对齐 iOS `.dateTime.year().month().day()` */
+export function formatCardioDate(input, lang = 'zh-CN') {
+  const t = typeof input === 'number' ? input : Date.parse(input)
+  if (!Number.isFinite(t)) return '—'
+  return new Intl.DateTimeFormat(langToIntl(lang),
+    { year: 'numeric', month: 'numeric', day: 'numeric' }).format(new Date(t))
+}
+
+/** X 轴标签。周/月 →「8/4」；年 →「2026」。对齐 iOS `xAxisFormat` */
+export function formatCardioAxisDate(t, granularity, lang = 'zh-CN') {
+  if (!Number.isFinite(t)) return ''
+  const options = granularity === 'year'
+    ? { year: 'numeric' }
+    : { month: 'numeric', day: 'numeric' }
+  return new Intl.DateTimeFormat(langToIntl(lang), options).format(new Date(t))
 }

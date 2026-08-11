@@ -457,3 +457,26 @@ button { color: inherit; }
   text-align: center;
 }
 
+/* ── 有氧适能卡（VO₂max）—— 与 iOS CardioFitnessCard 同构 ── */
+.trend-empty-inline { flex: 0 0 auto; padding: 26px 0; }
+
+.trend-cardio-subtitle { margin: -4px 0 0; color: #748387; font-size: 11px; }
+
+.trend-cardio-hero { display: flex; align-items: flex-end; gap: 9px; margin-top: 10px; }
+.trend-cardio-value {
+  color: #f0f4f5; font-size: 40px; font-weight: 600;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1;
+}
+.trend-cardio-unit { display: grid; gap: 2px; color: #9aa6aa; font-size: 12px; }
+.trend-cardio-date { color: #748387; font-size: 11px; font-style: normal; }
+.trend-cardio-badge { display: grid; gap: 2px; margin-left: auto; text-align: right; }
+.trend-cardio-badge em { color: #748387; font-size: 10px; font-style: normal; }
+.trend-cardio-badge b { font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* 折线用青色，刻意区别于配速图的橙色（#f5a23b）——同页两条折线撞色会被误读成同一指标 */
+.trend-cardio-line { fill: none; stroke: #37d5dc; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.trend-cardio-point { fill: #37d5dc; }
+
+.trend-cardio-placeholder { padding: 30px 0; color: #829095; font-size: 12px; line-height: 1.7; text-align: center; }
+.trend-cardio-placeholder-title { margin: 0 0 4px; color: #b9c4c8; font-size: 13px; font-weight: 500; }
+

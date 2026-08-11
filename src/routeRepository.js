@@ -154,6 +154,69 @@ export const apiRouteRepository = {
     }
   },
 
+  /** direction 的合法取值（与 iOS TrendDirection 一一对应） */
+  CARDIO_DIRECTIONS: new Set(['up', 'down', 'flat', 'unavailable']),
+
+  /** 有限数才留，其余（null / undefined / 字符串 / NaN / Infinity）一律 null */
+  finiteOrNull(value) {
+    const number = Number(value)
+    return Number.isFinite(number) ? number : null
+  },
+
+  /** 只接受 {date: string, value: 有限数} 形状的样本，其余丢弃 */
+  normalizeVo2MaxSample(raw) {
+    if (!raw || typeof raw.date !== 'string') return null
+    const value = this.finiteOrNull(raw.value)
+    return value === null ? null : { date: raw.date, value }
+  },
+
+  /**
+   * 有氧适能（VO₂max）。
+   *
+   * ★ 直接消费 iOS 端 `/api/cardio`，**Web 侧不重算任何派生值**——架构硬规则
+   * 「派生数据只在 Swift 算一次」。窗口截取 / windowAvg / delta / 死区 0.5 / direction
+   * 全部由原生 `CardioFitnessSummary.build` 算完下发，这里只做**形状校验与归一**。
+   *
+   * ★ **没有 activityType 参数，也永远不要加**：VO₂max 是 Apple「有氧适能」，用户级周期指标，
+   *   由 Apple Watch 按自身节奏写入，不归属任何一次 workout。按运动类型筛它本身即语义谬误。
+   *   后端 `/api/cardio` 也不接受 `type`（传了静默忽略）。
+   *
+   * ★ **刻意不透出 `windowTitle`**：后端那个串由 `String(localized:)` 生成 = **手机系统语言**，
+   *   而本页 i18n 跟随浏览器。中文手机 + 英文浏览器会串味。窗口标题一律由
+   *   `trend.cardioWindow*` 键在前端出。丢在这一层，物理上杜绝下游误用。
+   *
+   * 端点行为（见 `APIRouter.cardioResult`）：
+   * - 默认 `granularity=month`；字段 camelCase、时间 ISO 8601
+   * - 参数非法 → 400 + `{error, message}`（message 中文，**仅 console.warn**，永不抛给 UI）
+   * - `vo2max.json` 缺失 → **200 + hasData:false + 空 series**（正常空态，不是故障）
+   *
+   * @param {{granularity?: string}} options
+   * @returns {Promise<{latest: object|null, windowedSeries: Array<object>, windowAvg: number|null,
+   *                    previousAvg: number|null, delta: number|null, direction: string, hasData: boolean}>}
+   */
+  async getCardioFitness({ granularity = 'month' } = {}) {
+    const params = new URLSearchParams({ granularity })
+    const resp = await fetch(`/api/cardio?${params.toString()}`)
+    const raw = await resp.json().catch(() => null)
+    if (!resp.ok) {
+      if (raw && raw.message) {
+        console.warn(`[routeRepository] /api/cardio 失败（后端 message 仅供调试）: ${raw.message}`)
+      }
+      throw new Error('CARDIO_LOAD_FAILED')
+    }
+    const series = Array.isArray(raw && raw.windowedSeries) ? raw.windowedSeries : []
+    const direction = raw && raw.direction
+    return {
+      latest: this.normalizeVo2MaxSample(raw && raw.latest),
+      windowedSeries: series.map((sample) => this.normalizeVo2MaxSample(sample)).filter(Boolean),
+      windowAvg: this.finiteOrNull(raw && raw.windowAvg),
+      previousAvg: this.finiteOrNull(raw && raw.previousAvg),
+      delta: this.finiteOrNull(raw && raw.delta),
+      direction: this.CARDIO_DIRECTIONS.has(direction) ? direction : 'unavailable',
+      hasData: Boolean(raw && raw.hasData),
+    }
+  },
+
   /** 批量拉取天气（T3.5 / T3.4 对比面板）：只读 iOS 本地缓存，不触发 WeatherKit。
    *  返回 workoutId → WorkoutWeather 的 map；未命中的 id 直接不出现（不报错）。 */
   async getWeather(ids) {

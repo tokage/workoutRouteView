@@ -4,6 +4,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { ACTIVITY, ACTIVITY_ORDER } from '../constants'
 import { formatDuration, formatPaceSeconds, formatSpeedKmh } from '../format'
 import { apiRouteRepository } from '../routeRepository'
+import CardioFitnessCard from './CardioFitnessCard'
 import {
   CATEGORY_TO_ACTIVITY_TYPE,
   CHART,
@@ -68,6 +69,7 @@ export default function TrendView() {
   const [granularity, setGranularity] = useState('month')
   const [category, setCategory] = useState('all')
   const [state, setState] = useState({ status: 'loading', summary: null, error: '' })
+  const [cardio, setCardio] = useState({ status: 'loading', data: null, error: '' })
 
   useEffect(() => {
     let active = true
@@ -84,6 +86,22 @@ export default function TrendView() {
       active = false
     }
   }, [granularity, category])
+
+  // ★ 有氧适能（VO₂max）：独立 fetch state，依赖数组**只有 granularity**，故意不含 category。
+  //   VO₂max 是 Apple「有氧适能」——用户级周期指标，全身心肺能力，与运动类型无关；
+  //   按类型筛它本身就是语义谬误（「切到骑行后有氧适能变了」）。
+  //   iOS 侧靠 `CardioFitnessSummary.build` 签名不含 filter 做**编译期**防御；
+  //   Web 没有类型系统兜底，这行依赖数组 + `/api/cardio` 不接受 type 参数是仅有的两道防线。
+  //   ⚠️ 谁往这个数组里加 category，等于违反架构铁律，PR 直接打回。
+  useEffect(() => {
+    let active = true
+    setCardio((prev) => ({ ...prev, status: 'loading', error: '' }))
+    apiRouteRepository
+      .getCardioFitness({ granularity })
+      .then((data) => { if (active) setCardio({ status: 'ready', data, error: '' }) })
+      .catch((reason) => { if (active) setCardio({ status: 'error', data: null, error: reason.message }) })
+    return () => { active = false }
+  }, [granularity])
 
   const buckets = state.summary?.buckets || []
   const { current, previous } = useMemo(() => pickPeriods(buckets), [buckets])
@@ -109,6 +127,13 @@ export default function TrendView() {
   const activityColor = ACTIVITY[category].color
   const empty = isEmptySummary(buckets)
   const granularityLabelKey = GRANULARITIES.find((item) => item.key === granularity)?.labelKey || 'trend.granularityMonth'
+
+  const cardioHasData = cardio.status === 'ready' && cardio.data?.hasData === true
+  // 与 iOS `!snapshot.isEmpty || cardio.hasAnyData` 同构，另加一条：
+  // cardio 报错时也要出卡——「加载失败」必须能与「没有数据」区分开，否则用户以为自己没戴表。
+  const showCardioCard = !empty || cardioHasData || cardio.status === 'error'
+  // 门控（镜像 iOS §3.7 真值表，并补齐 Web 独有的 loading / error 两态）
+  const emptyClass = showCardioCard ? 'trend-empty trend-empty-inline' : 'trend-empty'
 
   return (
     <section className="trend-view" style={{ '--activity-color': activityColor }}>
@@ -143,15 +168,15 @@ export default function TrendView() {
         </div>
       </header>
 
-      {state.status === 'loading' && <p className="trend-empty">{t('trend.loading')}</p>}
+      {state.status === 'loading' && <p className={emptyClass}>{t('trend.loading')}</p>}
       {state.status === 'error' && (
-        <p className="trend-empty">
+        <p className={emptyClass}>
           {state.error === 'SUMMARY_LOAD_FAILED' ? t('errors.summaryLoadFailed') : state.error}
         </p>
       )}
 
       {state.status === 'ready' && empty && (
-        <p className="trend-empty">
+        <p className={emptyClass}>
           {t('trend.noDataTitle')}
           <br />
           {t('trend.noDataHint')}
@@ -275,6 +300,13 @@ export default function TrendView() {
             )}
           </div>
         </>
+      )}
+
+      {/* ★ 有氧适能：**不受类型筛选影响**，也不属于上面的 workout 版块，
+          因此是 if/else 的兄弟节点而非分支成员——
+          「一条 workout 都没有、但 Apple Watch 有 VO₂max 数据」时必须照常出卡。 */}
+      {showCardioCard && (
+        <CardioFitnessCard status={cardio.status} data={cardio.data} granularity={granularity} />
       )}
     </section>
   )
